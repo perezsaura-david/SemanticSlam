@@ -53,19 +53,12 @@
 class ObjectDetection
 {
 public:
-  // virtual g2o::HyperGraph::Vertex * getVertex()          = 0;
-  // virtual visualization_msgs::msg::Marker getVizMarker() = 0;
-  // virtual Eigen::Vector4d getVizMarkerColor()            = 0;
-  // virtual std::string getVizMarkerNamespace()            = 0;
-  // virtual std::string getNodeName()                      = 0;
   virtual std::string getId() = 0;
   virtual Eigen::MatrixXd getCovarianceMatrix() = 0;
   virtual Eigen::MatrixXd getInformationMatrix() = 0;
   virtual bool prepareMeasurements(const OdometryInfo & _detection_odometry) = 0;
   virtual GraphNode * createNode() = 0;
   virtual GraphEdge * createEdge(GraphNode * _node, GraphNode * _detection_node) = 0;
-  // virtual ObjectDetection * createEmptyDetection() = 0;
-  // virtual void initializeFromNode(GraphNode * _node) = 0;
 };
 
 class ObjectDetectionBase : public ObjectDetection
@@ -210,8 +203,6 @@ public:
       node_se3, detection_node_point3d, edge_measurement_,
       information_matrix_);
   }
-
-  // void initializeFromNode(GraphNode * _node) override {}
 };
 
 #endif  // AS2_SLAM__OBJECTS_TYPES_HPP_

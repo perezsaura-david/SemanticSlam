@@ -64,10 +64,23 @@ struct IsometryWithID
 struct OdometryInfo
 {
   // Eigen::Isometry3d measurement;      // Odometry measurement received.
-  // Eigen::MatrixXd covariance_matrix;  // Covariance matrix of the odometry measurement.
   Eigen::Isometry3d increment;     // Increment from the last odometry pose.
   Eigen::Isometry3d odom_ref;      // Odometry pose referenced from the "odom" frame.
   Eigen::Isometry3d map_ref;       // Odometry pose referenced from the "map" frame.
+  Eigen::MatrixXd covariance_matrix;  // Covariance matrix of the odometry measurement.
+};
+
+struct OdometryWithCovariance
+{
+  Eigen::Isometry3d odometry;
+  Eigen::MatrixXd covariance;
+};
+
+struct FixedObject
+{
+  std::string id;
+  std::string type;
+  Eigen::Isometry3d isometry;
 };
 
 PoseSE3 convertToPoseSE3(

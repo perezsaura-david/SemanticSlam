@@ -42,19 +42,21 @@
 
 // ROS2
 #include <Eigen/Dense>
-// #include <Eigen/src/Geometry/Transform.h>
+#include <geometry_msgs/msg/detail/pose_with_covariance__struct.hpp>
+#include <geometry_msgs/msg/detail/pose_with_covariance_stamped__struct.hpp>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <string>
 #include <memory>
-// #include <tf2_ros/static_transform_broadcaster.h>
 // ROS2 MSGS
 #include <as2_msgs/msg/pose_stamped_with_id.hpp>
+#include <as2_msgs/msg/pose_stamped_with_id_array.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <std_msgs/msg/header.hpp>
+#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 
 #include <as2_core/node.hpp>
 #include "as2_slam/optimizer_g2o.hpp"
@@ -68,13 +70,21 @@ public:
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
   void arucoPoseCallback(const as2_msgs::msg::PoseStampedWithID::SharedPtr msg);
   void gatePoseCallback(const as2_msgs::msg::PoseStampedWithID::SharedPtr msg);
+  void detectionsCallback(const as2_msgs::msg::PoseStampedWithIDArray::SharedPtr msg);
 
 private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Subscription<as2_msgs::msg::PoseStampedWithID>::SharedPtr aruco_pose_sub_;
   rclcpp::Subscription<as2_msgs::msg::PoseStampedWithID>::SharedPtr gate_pose_sub_;
+  rclcpp::Subscription<as2_msgs::msg::PoseStampedWithIDArray>::SharedPtr detections_sub_;
+
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr viz_main_markers_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr viz_temp_markers_pub_;
+
+  rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr
+    corrected_localization_pub_;
+  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr corrected_path_pub_;
+
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
   std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
@@ -86,13 +96,13 @@ private:
 
   std::unique_ptr<OptimizerG2O> optimizer_ptr_;  // g2o graph
 
-  // PoseSE3 last_odom_abs_pose_received_;
-  Eigen::Isometry3d last_odom_abs_pose_received_;
-  Eigen::MatrixXd last_odom_abs_covariance_received_;
+  OdometryWithCovariance last_odometry_received_;
   geometry_msgs::msg::TransformStamped map_odom_transform_msg_;
 
+  // Eigen::Isometry3d generatePoseFromMsg(
+  //   const std::shared_ptr<as2_msgs::msg::PoseStampedWithID> & _msg);
   Eigen::Isometry3d generatePoseFromMsg(
-    const std::shared_ptr<as2_msgs::msg::PoseStampedWithID> & _msg);
+    const as2_msgs::msg::PoseStampedWithID & _msg);
 
   void visualizeCleanTempGraph();
   void visualizeMainGraph();
@@ -103,10 +113,8 @@ private:
   visualization_msgs::msg::MarkerArray generateCleanMarkersMsg();
   void updateMapOdomTransform(const std_msgs::msg::Header & _header);
 
-  // tf_broadcaster_; std::shared_ptr<tf2_ros::StaticTransformBroadcaster>
-  // tfstatic_broadcaster_; std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-  // std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
-
+  void processArucoMsg(const as2_msgs::msg::PoseStampedWithID _msg);
+  void processGateMsg(const as2_msgs::msg::PoseStampedWithID _msg);
   // std::filesystem::path plugin_name_;
   // std::shared_ptr<pluginlib::ClassLoader<as2_state_estimator_plugin_base::StateEstimatorBase>>
   //     loader_;

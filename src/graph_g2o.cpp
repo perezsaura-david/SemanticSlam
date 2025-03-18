@@ -42,6 +42,8 @@
 #include <Eigen/src/Geometry/Transform.h>
 #include <g2o/core/optimization_algorithm_factory.h>
 
+#include <g2o/core/parameter.h>
+#include <g2o/types/slam3d/parameter_se3_offset.h>
 #include <memory>
 #include <string>
 #include <vector>
@@ -72,6 +74,12 @@ GraphG2O::GraphG2O(std::string _name)
   g2o::OptimizationAlgorithm * solver = solver_factory->construct(solver_type, solver_property);
   graph_->setAlgorithm(solver);
 
+  g2o::ParameterSE3Offset * sensorOffset = new g2o::ParameterSE3Offset;
+  sensorOffset->setOffset(Eigen::Isometry3d().Identity());
+  sensorOffset->setId(0);
+  graph_->addParameter(sensorOffset);
+
+
   if (!graph_->solver()) {
     std::cerr << std::endl;
     std::cerr << "error : failed to allocate main solver!!" << std::endl;
@@ -92,27 +100,26 @@ std::unordered_map<std::string, GraphNode *> GraphG2O::getObjectNodes() {return 
 OdomNode * GraphG2O::getLastOdomNode() {return last_odom_node_;}
 
 
-void GraphG2O::setFixedObjects(const std::vector<IsometryWithID> & _fixed_objects)
+void GraphG2O::setFixedObjects(const std::vector<FixedObject> & _fixed_objects)
 {
-  // FIXME: testing covariance
-  // Eigen::Matrix<double, 6, 6> aruco_covariance = Eigen::MatrixXd::Identity(6, 6) * 0.1;
-  // Eigen::Matrix<double, 6, 6> gate_covariance = Eigen::MatrixXd::Identity(3, 3) * 0.1;
-
-  // for (auto object : _fixed_objects) {
-  //   ArucoNode * fixed_node(new ArucoNode(object.isometry));
-  //   fixed_node->setFixed();
-  //   // fixed_node->setCovariance(aruco_covariance);
-  //   addNode(*fixed_node);
-  //   obj_id2node_[object.id] = fixed_node;
-  //   FLAG_GRAPH("Added aruco fixed object ID: " << object.id);
-  // }
   for (auto object : _fixed_objects) {
-    GateNode * fixed_node(new GateNode(object.isometry.translation()));
-    fixed_node->setFixed();
-    // fixed_node->setCovariance(aruco_covariance);
-    addNode(*fixed_node);
-    obj_id2node_[object.id] = fixed_node;
-    FLAG_GRAPH("Added gate fixed object ID: " << object.id);
+    GraphNode * fixed_node = nullptr;
+
+    if (object.type == "aruco") {
+      fixed_node = new ArucoNode(object.isometry);
+    } else if (object.type == "gate") {
+      fixed_node = new GateNode(object.isometry.translation());
+    }
+
+    if (fixed_node) {   // Check if the pointer was initialized
+      fixed_node->setFixed();
+      // fixed_node->setCovariance(aruco_covariance);
+      addNode(*fixed_node);
+      obj_id2node_[object.id] = fixed_node;
+      FLAG_GRAPH("Added fixed object ID: " << object.id);
+    } else {
+      FLAG_GRAPH("Warning: Unrecognized object type: " << object.type);
+    }
   }
 }
 
@@ -154,7 +161,6 @@ void GraphG2O::optimizeGraph()
 
 void GraphG2O::addNode(GraphNode & _node)
 {
-  // INFO("Add Node to Graph: " << name_);
   int id = n_vertices_++;
   _node.getVertex()->setId(id);
   if (!graph_->addVertex(_node.getVertex())) {
@@ -180,7 +186,6 @@ void GraphG2O::addNewKeyframe(
   const Eigen::Isometry3d & _relative_pose,
   const Eigen::MatrixXd & _relative_covariance)
 {
-  // DEBUG("LOP: " << last_odom_node_->getPose().translation().transpose());
   OdomNode * odom_node(new OdomNode(_absolute_pose));
   addNode(*odom_node);
 
@@ -208,10 +213,8 @@ void GraphG2O::addNewObjectDetection(
     INFO_GRAPH("Already detected object ID: " << _object_detection->getId());
   }
 
-  // DEBUG_GRAPH("ADD EDGE TO: " << object_node->getNodeName());
   GraphEdge * object_edge = _object_detection->createEdge(last_odom_node_, object_node);
   addEdge(*object_edge);
-  // DEBUG("Added new edge to object");
 }
 
 Eigen::MatrixXd GraphG2O::computeNodeCovariance(GraphNode * _node)
@@ -242,52 +245,5 @@ Eigen::MatrixXd GraphG2O::computeNodeCovariance(GraphNode * _node)
     covariance = *it->second;
   }
 
-  // Retrieve the covariance block
-  // Eigen::MatrixXd covariance = *(spinv.block(node_id - 1, node_id - 1));
-
-  // Log the covariance block
-  // std::cout << "Covariance block for node " << node_id << ":\n" << covariance << std::endl;
-
   return covariance;
 }
-
-// Eigen::MatrixXd GraphG2O::computeNodeCovariance(GraphNode * _node)
-// {
-//   Eigen::MatrixXd covariance;
-//   g2o::SparseBlockMatrix<Eigen::MatrixXd> spinv;
-
-//   int node_id = _node->getVertex()->id();
-
-//   auto node_se3 = dynamic_cast<g2o::VertexSE3 *>(_node);
-//   if (node_se3) {
-//     this->graph_->computeMarginals(spinv, node_se3);
-//   }
-//   auto node_point3d = dynamic_cast<g2o::VertexPointXYZ *>(_node);
-//   if (node_point3d) {
-//     this->graph_->computeMarginals(spinv, node_point3d);
-//     // continue;
-//   }
-//   // WARN("Node [" << id << "] type is not recognized");
-//   std::cout << "covariance\n" << spinv << std::endl;
-
-//   if (spinv.nonZeroBlocks() < 1) {
-//     // std::cout << spinv.nonZeros() << std::endl;
-//     INFO("Empty block");
-//   }
-//   // Get the block corresponding to this node
-//   // // Access the covariance for a particular node
-//   auto block_cols = spinv.blockCols();
-//   auto it = block_cols[node_id - 1].find(node_id - 1);
-//   if (it != block_cols[node_id].end()) {
-//     covariance = *it->second;
-//     if (covariance) {
-//       FLAG("Covariance block for node " << node_id << ":\n" << *covariance);
-//     } else {
-//       WARN("Covariance block for node " << node_id << " is nullptr.");
-//     }
-//   } else {
-//     INFO("No covariance block found for node " << node_id);
-//   }
-
-//   return covariance;
-// }

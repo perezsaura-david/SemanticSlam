@@ -85,20 +85,14 @@ public:
     const Eigen::Isometry3d & _absolute_pose,
     const Eigen::Isometry3d & _relative_pose,
     const Eigen::MatrixXd & _relative_covariance);
-  // void addNewObjectKeyframe(
-  //   const std::string & _obj_id,
-  //   const Eigen::Isometry3d & _obj_absolute_pose,
-  //   const Eigen::Isometry3d & _obj_relative_pose,
-  //   const Eigen::MatrixXd & _obj_covariance);
   void addNewObjectDetection(ObjectDetection * _object);
   Eigen::MatrixXd computeNodeCovariance(GraphNode * _node);
 
   void optimizeGraph();
-  void setFixedObjects(const std::vector<IsometryWithID> & _fixed_objects);
+  void setFixedObjects(const std::vector<FixedObject> & _fixed_objects);
   void initGraph(const Eigen::Isometry3d & _initial_pose = Eigen::Isometry3d::Identity());
   std::shared_ptr<g2o::SparseOptimizer> graph_;  // g2o graph
 
-  // std::unordered_map<std::string, ArucoNode *> obj_id2node_;
   std::unordered_map<std::string, GraphNode *> obj_id2node_;
   std::vector<ObjectNodeInfo> obj_nodes_info_;
 

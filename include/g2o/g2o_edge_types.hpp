@@ -64,7 +64,6 @@ public:
     return new EdgeSE3Point3D();
   }
 
-  // Compute the error between the observed measurement and the estimated value
   void computeError() override
   {
     const g2o::VertexSE3 * se3 = static_cast<const g2o::VertexSE3 *>(_vertices[0]);
@@ -74,31 +73,37 @@ public:
     Eigen::Vector3d transformedPoint = se3->estimate().inverse() * point->estimate();
 
     // Compute the error as the difference between the transformed point and the measurement
-    _error = _measurement - transformedPoint;
-
-    // std::cout << "Error: " << _error.transpose() << std::endl;
+    _error = transformedPoint - _measurement;
+    std::cout << "Edge: " << _id << std::endl;
+    std::cout << "SE3 translation" << std::endl;
+    std::cout << se3->estimate().translation().transpose() << std::endl;
+    std::cout << "SE3 rotation" << std::endl;
+    std::cout << se3->estimate().rotation().transpose() << std::endl;
+    std::cout << "Point translation" << std::endl;
+    std::cout << point->estimate().transpose() << std::endl;
+    std::cout << "Computed error" << std::endl;
+    std::cout << _error.transpose() << std::endl;
+    std::cout << "---" << std::endl;
   }
 
-  // Jacobians (optional, for better performance)
   void linearizeOplus() override
   {
     const g2o::VertexSE3 * se3 = static_cast<const g2o::VertexSE3 *>(_vertices[0]);
     const g2o::VertexPointXYZ * point = static_cast<const g2o::VertexPointXYZ *>(_vertices[1]);
 
     Eigen::Matrix3d Ri = se3->estimate().rotation().transpose();
+    Eigen::Vector3d transformedPoint = se3->estimate().inverse() * point->estimate();
 
     Eigen::Matrix<double, 3, 6> jacobian_pose;
-    jacobian_pose.block<3, 3>(0, 0) = Ri * skewSymmetric(point->estimate());
+    jacobian_pose.block<3, 3>(0, 0) = Ri * skewSymmetric(transformedPoint);
     jacobian_pose.block<3, 3>(0, 3) = -Ri;
 
     Eigen::Matrix<double, 3, 3> jacobian_point = -Ri;
 
     _jacobianOplusXi = jacobian_pose;
     _jacobianOplusXj = jacobian_point;
-
-    // std::cout << "Jacobian w.r.t. SE3: " << _jacobianOplusXi << std::endl;
-    // std::cout << "Jacobian w.r.t. PointXYZ: " << _jacobianOplusXj << std::endl;
   }
+
 
   // Read method for deserialization
   bool read(std::istream & is) override

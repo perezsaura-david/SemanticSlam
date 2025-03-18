@@ -3,7 +3,6 @@ set(PROJECT_NAME as2_slam)
 project(${PROJECT_NAME} VERSION 1.0.0)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/cmake")
-# list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 # Default to C++17
 if(NOT CMAKE_CXX_STANDARD)
@@ -133,21 +132,6 @@ target_link_libraries(${PROJECT_NAME}_node
                       ${G2O_TYPES_SLAM3D_ADDONS}
                       ${FMT_LIBRARIES}
 )
-
-# add_executable(g2o_3D_slam src/g2o_3D_slam.cpp)
-# ament_target_dependencies(g2o_3D_slam ${PROJECT_DEPENDENCIES})
-# # target_link_libraries(g2o_3D_slam ${PROJECT_NAME} ${OpenCV_LIBS})
-# target_link_libraries(g2o_3D_slam
-#                       ${G2O_TYPES_DATA}
-#                       ${G2O_CORE_LIBRARY}
-#                       ${G2O_STUFF_LIBRARY}
-#                       ${G2O_SOLVER_PCG}
-#                       ${G2O_SOLVER_CSPARSE}   # be aware of that CSPARSE is released under LGPL
-#                       ${G2O_SOLVER_CHOLMOD}   # be aware of that cholmod is released under GPL
-#                       ${G2O_TYPES_SLAM3D}
-#                       ${G2O_TYPES_SLAM3D_ADDONS}
-#                       ${FMT_LIBRARIES}
-# )
 
 install(TARGETS
   ${PROJECT_NAME}_node
