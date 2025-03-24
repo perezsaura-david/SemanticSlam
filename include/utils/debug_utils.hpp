@@ -43,6 +43,16 @@
 #include <memory>
 #include "as2_slam/graph_g2o.hpp"
 
+#define DEBUG_START_TIMER auto start_time = std::chrono::high_resolution_clock::now();
+#define DEBUG_LOG_DURATION_GRAPH auto end_time = std::chrono::high_resolution_clock::now(); \
+  auto duration = \
+    std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count(); \
+  DEBUG_GRAPH(__func__ << " : " << duration << " ms");
+#define DEBUG_LOG_DURATION auto end_time = std::chrono::high_resolution_clock::now(); \
+  auto duration = \
+    std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count(); \
+  DEBUG(__func__ << " : " << duration << " ms");
+
 void debugGraphVertices(std::shared_ptr<GraphG2O> _graph);
 void debugComputeCovariance(const g2o::SparseBlockMatrix<Eigen::MatrixXd> & _spinv, int _node_id);
 

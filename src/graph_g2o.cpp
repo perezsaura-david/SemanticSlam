@@ -55,6 +55,7 @@
 #include "as2_slam/object_detection_types.hpp"
 #include "utils/conversions.hpp"
 #include "utils/general_utils.hpp"
+#include "utils/debug_utils.hpp"
 
 G2O_USE_OPTIMIZATION_LIBRARY(pcg)
 G2O_USE_OPTIMIZATION_LIBRARY(cholmod)
@@ -136,8 +137,9 @@ void GraphG2O::initGraph(const Eigen::Isometry3d & _initial_pose)
 
 void GraphG2O::optimizeGraph()
 {
+  DEBUG_START_TIMER
   const int num_iterations = 100;
-  INFO_GRAPH("--- optimizing graph ---");
+  // INFO_GRAPH("--- optimizing graph ---");
   INFO_GRAPH("nodes: " << graph_->vertices().size() << "   edges: " << graph_->edges().size());
   // std::cout << "optimizing... " << std::flush;
   // std::cout << "init" << std::endl;
@@ -151,12 +153,13 @@ void GraphG2O::optimizeGraph()
   // std::cout << "Start optimization" << std::endl;
   graph_->optimize(num_iterations);
   // int iterations = graph_->optimize(num_iterations);
-  FLAG_GRAPH("Optimization done");
+  // FLAG_GRAPH("Optimization done");
   // std::cout << "iterations: " << iterations << " / " << num_iterations << std::endl;
   // std::cout << "chi2: (before)" << chi2 << " -> (after)" << graph->chi2() << std::endl;
   if (std::isnan(graph_->chi2())) {
     throw std::invalid_argument("GRAPH RETURNED A NAN...STOPPING THE EXPERIMENT");
   }
+  DEBUG_LOG_DURATION_GRAPH
 }
 
 void GraphG2O::addNode(GraphNode & _node)
@@ -208,9 +211,9 @@ void GraphG2O::addNewObjectDetection(
     addNode(*object_node);
 
     obj_id2node_[_object_detection->getId()] = object_node;
-    FLAG_GRAPH("Added new object ID: " << _object_detection->getId());
+    // FLAG_GRAPH("Added new object ID: " << _object_detection->getId());
   } else {
-    INFO_GRAPH("Already detected object ID: " << _object_detection->getId());
+    // INFO_GRAPH("Already detected object ID: " << _object_detection->getId());
   }
 
   GraphEdge * object_edge = _object_detection->createEdge(last_odom_node_, object_node);

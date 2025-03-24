@@ -65,12 +65,18 @@ public:
     const OdometryWithCovariance & _new_odometry);
   void handleNewObjectDetection(
     ObjectDetection * _object,
-    const OdometryWithCovariance & _detection_odometry);
+    const OdometryInfo & _detection_odometry_info);
+  // bool handleNewObjectDetection(
+  //   ObjectDetection * _object,
+  //   const OdometryWithCovariance & _detection_odometry);
   bool generateOdometryInfo(
     const OdometryWithCovariance & _new_odometry,
     const OdometryWithCovariance & _last_odometry_added,
     OdometryInfo & _odometry_info);
   void updateOdomMapTransform();
+  bool checkAddingNewDetection(
+    const OdometryWithCovariance & _detection_odometry,
+    OdometryInfo & _detection_odometry_info);
   bool checkAddingConditions(
     const OdometryInfo & _odometry, const double distance_threshold);
 
@@ -91,9 +97,9 @@ private:
   OdometryWithCovariance last_detection_odometry_added_;
 
   // PARAMETERS
-  double odometry_distance_threshold_ = 1.0;         // meters
+  double odometry_distance_threshold_ = 2.0;         // meters
   double odometry_orientation_threshold_ = 1.0;      // radians
-  double obj_odometry_distance_threshold_ = 0.01;     // meters
+  double obj_odometry_distance_threshold_ = 0.1;     // meters
   double obj_odometry_orientation_threshold_ = 0.2;  // radians
   bool odometry_is_relative_ = false;
   bool generate_odom_map_transform_ = true;

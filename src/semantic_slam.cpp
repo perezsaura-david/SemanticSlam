@@ -47,6 +47,7 @@
 #include "as2_slam/graph_node_types.hpp"
 #include "utils/conversions.hpp"
 #include "as2_slam/object_detection_types.hpp"
+#include "utils/debug_utils.hpp"
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
@@ -128,18 +129,20 @@ SemanticSlam::SemanticSlam()
   updateMapOdomTransform(header);
 }
 
+////// CALLBACKS //////
+
 void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
+  DEBUG_START_TIMER
   Eigen::Isometry3d odom_pose = convertToIsometry3d(msg->pose.pose);
   Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> odom_covariance(
     msg->pose.covariance.data());
 
   if (odom_pose.translation().isZero()) {return;}
-  // Eigen::Matrix<double, 6, 6> odom_covariance = Eigen::MatrixXd::Identity(6, 6) * 0.1;
 
   OdometryWithCovariance odometry_received_;
   odometry_received_.odometry = odom_pose;
-  odometry_received_.covariance = odom_covariance;
+  odometry_received_.covariance = odom_covariance * 100;
 
   // TODO(dps): Define how to use this
   // msg->header.stamp;
@@ -151,6 +154,7 @@ void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
     visualizeMainGraph();
     visualizeCleanTempGraph();
     updateMapOdomTransform(msg->header);
+    DEBUG_LOG_DURATION
   }
 
   map_odom_transform_msg_.header.stamp = msg->header.stamp;
@@ -173,19 +177,54 @@ void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
   corrected_path_msg.header.frame_id = map_frame_;
   corrected_path_msg.poses.emplace_back(pose_stamped_msg);
   corrected_path_pub_->publish(corrected_path_msg);
+
+}
+
+void SemanticSlam::detectionsCallback(
+  const as2_msgs::msg::PoseStampedWithIDArray::SharedPtr msg)
+{
+  DEBUG_START_TIMER
+  OdometryInfo detection_odometry_info;
+  if (!optimizer_ptr_->checkAddingNewDetection(last_odometry_received_, detection_odometry_info)) {
+    return;
+  }
+
+  std::string object_type;
+  // object_type = msg->type;
+  object_type = "aruco";
+  for (auto & detection : msg->poses) {
+    if (object_type == "aruco") {
+      processArucoMsg(detection, detection_odometry_info);
+    } else if (object_type == "gate") {
+      processGateMsg(detection, detection_odometry_info);
+    }
+  }
+  DEBUG_LOG_DURATION
 }
 
 void SemanticSlam::arucoPoseCallback(const as2_msgs::msg::PoseStampedWithID::SharedPtr msg)
 {
-  processArucoMsg(*msg);
+  OdometryInfo detection_odometry_info;
+  if (!optimizer_ptr_->checkAddingNewDetection(last_odometry_received_, detection_odometry_info)) {
+    return;
+  }
+  processArucoMsg(*msg, detection_odometry_info);
 }
 
 void SemanticSlam::gatePoseCallback(const as2_msgs::msg::PoseStampedWithID::SharedPtr msg)
 {
-  processGateMsg(*msg);
+  OdometryInfo detection_odometry_info;
+  if (!optimizer_ptr_->checkAddingNewDetection(last_odometry_received_, detection_odometry_info)) {
+    return;
+  }
+  processGateMsg(*msg, detection_odometry_info);
 }
 
-void SemanticSlam::processGateMsg(const as2_msgs::msg::PoseStampedWithID _msg)
+////// PROCESS //////
+
+void SemanticSlam::processGateMsg(
+  const as2_msgs::msg::PoseStampedWithID _msg,
+  const OdometryInfo _detection_odometry_info)
 {
   std::string gate_id = _msg.id;
   Eigen::Vector3d gate_position = generatePoseFromMsg(_msg).translation();
@@ -197,26 +236,13 @@ void SemanticSlam::processGateMsg(const as2_msgs::msg::PoseStampedWithID _msg)
       gate_id, gate_position, gate_covariance,
       detections_are_absolute));
 
-  optimizer_ptr_->handleNewObjectDetection(gate, last_odometry_received_);
+  optimizer_ptr_->handleNewObjectDetection(gate, _detection_odometry_info);
   visualizeTempGraph();
 }
 
-void SemanticSlam::detectionsCallback(
-  const as2_msgs::msg::PoseStampedWithIDArray::SharedPtr msg)
-{
-  std::string object_type;
-  // object_type = msg->type;
-  object_type = "aruco";
-  for (auto & detection : msg->poses) {
-    if (object_type == "aruco") {
-      processArucoMsg(detection);
-    } else if (object_type == "gate") {
-      processGateMsg(detection);
-    }
-  }
-}
-
-void SemanticSlam::processArucoMsg(const as2_msgs::msg::PoseStampedWithID _msg)
+void SemanticSlam::processArucoMsg(
+  const as2_msgs::msg::PoseStampedWithID _msg,
+  const OdometryInfo _detection_odometry_info)
 {
   std::string aruco_id = _msg.id;
   // TODO(dps): Define how to use this
@@ -234,10 +260,9 @@ void SemanticSlam::processArucoMsg(const as2_msgs::msg::PoseStampedWithID _msg)
       aruco_id, aruco_pose, aruco_covariance,
       detections_are_absolute));
 
-  optimizer_ptr_->handleNewObjectDetection(aruco, last_odometry_received_);
+  optimizer_ptr_->handleNewObjectDetection(aruco, _detection_odometry_info);
   visualizeTempGraph();
 }
-
 
 void SemanticSlam::updateMapOdomTransform(const std_msgs::msg::Header & _header)
 {
@@ -245,8 +270,6 @@ void SemanticSlam::updateMapOdomTransform(const std_msgs::msg::Header & _header)
     optimizer_ptr_->getMapOdomTransform(), map_frame_, odom_frame_, _header.stamp);
 }
 
-// Eigen::Isometry3d SemanticSlam::generatePoseFromMsg(
-//   const std::shared_ptr<as2_msgs::msg::PoseStampedWithID> & _msg)
 Eigen::Isometry3d SemanticSlam::generatePoseFromMsg(
   const as2_msgs::msg::PoseStampedWithID & _msg)
 {
@@ -288,6 +311,8 @@ Eigen::Isometry3d SemanticSlam::generatePoseFromMsg(
   return pose;
 }
 
+////// VISUALIZATION //////
+
 void SemanticSlam::visualizeMainGraph()
 {
   visualization_msgs::msg::MarkerArray viz_odom_nodes_msg =
@@ -318,14 +343,16 @@ visualization_msgs::msg::MarkerArray SemanticSlam::generateVizNodesMsg(
   std::shared_ptr<GraphG2O> & _graph)
 {
   bool main = false;
+  std::string viz_frame = odom_frame_;
   if (_graph->getName() == "Main Graph") {
     main = true;
+    viz_frame = map_frame_;
   }
   visualization_msgs::msg::MarkerArray viz_markers_msg;
   std::vector<GraphNode *> graph_nodes = _graph->getNodes();
   for (auto & node : graph_nodes) {
     visualization_msgs::msg::Marker viz_marker_msg = node->getVizMarker(main);
-    viz_marker_msg.header.frame_id = map_frame_;
+    viz_marker_msg.header.frame_id = viz_frame;
     viz_markers_msg.markers.emplace_back(viz_marker_msg);
     // visualization_msgs::msg::Marker viz_cov_marker_msg = node->getVizCovMarker();
     // viz_markers_msg.markers.emplace_back(viz_marker_msg);
@@ -337,14 +364,16 @@ visualization_msgs::msg::MarkerArray SemanticSlam::generateVizEdgesMsg(
   std::shared_ptr<GraphG2O> & _graph)
 {
   bool main = false;
+  std::string viz_frame = odom_frame_;
   if (_graph->getName() == "Main Graph") {
     main = true;
+    viz_frame = map_frame_;
   }
   visualization_msgs::msg::MarkerArray viz_markers_msg;
   std::vector<GraphEdge *> graph_edges = _graph->getEdges();
   for (auto & edge : graph_edges) {
     visualization_msgs::msg::Marker viz_marker_msg = edge->getVizMarker(main);
-    viz_marker_msg.header.frame_id = map_frame_;
+    viz_marker_msg.header.frame_id = viz_frame;
     viz_markers_msg.markers.emplace_back(viz_marker_msg);
   }
   return viz_markers_msg;

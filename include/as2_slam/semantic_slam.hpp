@@ -115,6 +115,12 @@ private:
 
   void processArucoMsg(const as2_msgs::msg::PoseStampedWithID _msg);
   void processGateMsg(const as2_msgs::msg::PoseStampedWithID _msg);
+  void processArucoMsg(
+    const as2_msgs::msg::PoseStampedWithID _msg,
+    const OdometryInfo _detection_odometry_info);
+  void processGateMsg(
+    const as2_msgs::msg::PoseStampedWithID _msg,
+    const OdometryInfo _detection_odometry_info);
   // std::filesystem::path plugin_name_;
   // std::shared_ptr<pluginlib::ClassLoader<as2_state_estimator_plugin_base::StateEstimatorBase>>
   //     loader_;

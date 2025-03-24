@@ -72,7 +72,7 @@ OptimizerG2O::OptimizerG2O()
     {"gate_3", Eigen::Vector3d(-4.0, -1.29, 1.16)},
     {"gate_4", Eigen::Vector3d(-3.97, 1.28, 1.17)}
   };
-  Eigen::Quaterniond orientation = Eigen::Quaterniond::Identity();  // Assuming default orientation
+  // Eigen::Quaterniond orientation = Eigen::Quaterniond::Identity();  // Assuming default orientation
   // Gate orientation
   // Eigen::Matrix3d rotation_matrix;
   // rotation_matrix << 0.0, 0.0, 1.0,
@@ -227,43 +227,50 @@ bool OptimizerG2O::checkAddingConditions(
   return true;
 }
 
-// TODO(dps): return bool?
-void OptimizerG2O::handleNewObjectDetection(
-  ObjectDetection * _object,
-  const OdometryWithCovariance & _detection_odometry)
+bool OptimizerG2O::checkAddingNewDetection(
+  const OdometryWithCovariance & _detection_odometry,
+  OdometryInfo & _detection_odometry_info)
 {
   if (!temp_graph_generated_) {
     last_detection_odometry_added_ = last_odometry_added_;
   }
 
-  OdometryInfo detection_odometry_info;
+  // OdometryInfo detection_odometry_info;
   generateOdometryInfo(
     _detection_odometry, last_detection_odometry_added_,
-    detection_odometry_info);
+    _detection_odometry_info);
 
   if (!temp_graph_generated_) {
-    temp_graph->initGraph(detection_odometry_info.map_ref);
-    main_graph_object_covariance = _object->getCovarianceMatrix();  // FIXME(dps): remove this
+    temp_graph->initGraph(_detection_odometry_info.map_ref);
     temp_graph_generated_ = true;
+    // main_graph_object_covariance = _object->getCovarianceMatrix();  // FIXME(dps): remove this
   } else {
-    if (!checkAddingConditions(detection_odometry_info, obj_odometry_distance_threshold_)) {
+    if (!checkAddingConditions(_detection_odometry_info, obj_odometry_distance_threshold_)) {
       // INFO(
       //   "New odometry distance is not enough: " <<
       //     detection_odometry_info.increment.translation().norm());
-      return;
+      return false;
     }
     // FLAG(
     //   "New odometry distance is enough: " <<
     //     detection_odometry_info.increment.translation().norm());
     temp_graph->addNewKeyframe(
-      detection_odometry_info.map_ref, detection_odometry_info.increment,
-      detection_odometry_info.covariance_matrix);
+      _detection_odometry_info.map_ref, _detection_odometry_info.increment,
+      _detection_odometry_info.covariance_matrix);
   }
 
-  last_detection_odometry_added_.odometry = detection_odometry_info.odom_ref;
+  last_detection_odometry_added_.odometry = _detection_odometry_info.odom_ref;
   last_detection_odometry_added_.covariance = _detection_odometry.covariance;
 
-  if (!_object->prepareMeasurements(detection_odometry_info)) {
+  return true;
+}
+
+// TODO(dps): return bool?
+void OptimizerG2O::handleNewObjectDetection(
+  ObjectDetection * _object,
+  const OdometryInfo & _detection_odometry_info)
+{
+  if (!_object->prepareMeasurements(_detection_odometry_info)) {
     ERROR("Prepare detection ERROR");
     return;
   }
