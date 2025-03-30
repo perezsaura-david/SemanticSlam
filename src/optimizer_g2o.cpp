@@ -65,37 +65,33 @@ OptimizerG2O::OptimizerG2O()
 
   // TODO(dps): Make this a parameter
   // std::string object_type = "gate";
-  std::string object_type = "aruco";
-  std::vector<std::pair<std::string, Eigen::Vector3d>> fixed_objects_list = {
-    {"gate_1", Eigen::Vector3d(4.0, 1.3, 1.13)},
-    {"gate_2", Eigen::Vector3d(4.0, -1.34, 1.16)},
-    {"gate_3", Eigen::Vector3d(-4.0, -1.29, 1.16)},
-    {"gate_4", Eigen::Vector3d(-3.97, 1.28, 1.17)}
-  };
-  // Eigen::Quaterniond orientation = Eigen::Quaterniond::Identity();  // Assuming default orientation
-  // Gate orientation
-  // Eigen::Matrix3d rotation_matrix;
-  // rotation_matrix << 0.0, 0.0, 1.0,
-  //   -1.0, 0.0, 0.0,
-  //   0.0, -1.0, 0.0;
-  // Eigen::Quaterniond orientation(rotation_matrix);
+  // std::string object_type = "aruco";
+  // std::vector<std::pair<std::string, Eigen::Vector4d>> fixed_objects_list = {
+  //   {"gate_1", Eigen::Vector4d(4.0, 1.3, 1.13, 3.14)},
+  //   {"gate_2", Eigen::Vector4d(4.0, -1.34, 1.16, 0.0)},
+  //   {"gate_3", Eigen::Vector4d(-4.0, -1.29, 1.16, 0.0)},
+  //   {"gate_4", Eigen::Vector4d(-3.97, 1.28, 1.17, 3.14)}
+  // };
 
+  // std::vector<std::pair<std::string, Eigen::Vector4d>> fixed_objects_list = {
+  //   {"gate_1", Eigen::Vector4d(5.6, 1.5, 1.375, 0.0)},
+  //   {"gate_2", Eigen::Vector4d(14.3, -1.06, 1.375, 0.0)},
+  // };
 
-  std::vector<FixedObject> fixed_objects;
-  for (auto object : fixed_objects_list) {
-    FixedObject fixed_object;
-    fixed_object.id = object.first;
-    fixed_object.type = object_type;
-    // Determine yaw angle
-    double yaw = (object.first == "gate_1" || object.first == "gate_4") ? 3.14 : 0.0;
-    // Convert yaw to quaternion
-    Eigen::Quaterniond orientation(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
-    fixed_object.isometry = convertToIsometry3d(object.second, orientation);
-    fixed_objects.emplace_back(fixed_object);
-  }
+  // std::vector<FixedObject> fixed_objects;
+  // for (auto object : fixed_objects_list) {
+  //   FixedObject fixed_object;
+  //   fixed_object.id = object.first;
+  //   fixed_object.type = object_type;
+  //   Eigen::Vector3d object_position = object.second.head(3);
+  //   double yaw = object.second(3);
+  //   // Convert yaw to quaternion
+  //   Eigen::Quaterniond orientation(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
+  //   fixed_object.isometry = convertToIsometry3d(object_position, orientation);
+  //   fixed_objects.emplace_back(fixed_object);
+  // }
 
   main_graph->initGraph();
-  main_graph->setFixedObjects(fixed_objects);
   map_odom_tranform_ = Eigen::Isometry3d::Identity();
   last_odometry_added_.odometry = Eigen::Isometry3d::Identity();
   last_odometry_added_.covariance = Eigen::MatrixXd::Zero(6, 6);
@@ -116,7 +112,8 @@ bool OptimizerG2O::generateOdometryInfo(
     // ABSOLUTE ODOMETRY
     _odometry_info.odom_ref = _new_odometry.odometry;
     _odometry_info.increment = _last_odometry_added.odometry.inverse() * _odometry_info.odom_ref;
-    _odometry_info.covariance_matrix = _new_odometry.covariance - _last_odometry_added.covariance;
+    _odometry_info.covariance_matrix = _new_odometry.covariance;
+    // _odometry_info.covariance_matrix = _new_odometry.covariance - _last_odometry_added.covariance;
   }
   // _odometry_info.map_ref = map_odom_tranform_ * _odometry_info.odom_ref;
   _odometry_info.map_ref = _odometry_info.odom_ref;
@@ -130,6 +127,7 @@ bool OptimizerG2O::generateOdometryInfo(
 bool OptimizerG2O::handleNewOdom(
   const OdometryWithCovariance & _new_odometry)
 {
+
   OdometryInfo new_odometry_info;
   if (!generateOdometryInfo(
       _new_odometry, last_odometry_added_,
@@ -138,12 +136,27 @@ bool OptimizerG2O::handleNewOdom(
     return false;
   }
 
-  if (!checkAddingConditions(new_odometry_info, odometry_distance_threshold_)) {
+  if (!checkAddingConditions(new_odometry_info, main_graph_odometry_distance_threshold_)) {
     return false;
   }
   // INFO("New odometry distance is enough: " << new_odometry_info.increment.translation().norm());
   last_odometry_added_.odometry = new_odometry_info.odom_ref;
   last_odometry_added_.covariance = _new_odometry.covariance;
+
+  // if (_new_odometry.covariance.isZero()) {
+  //   ERROR("Covariance matrix is zero");
+  //   main_graph->initGraph(_new_odometry.odometry);
+  //   return true;
+  // }
+
+  // FLAG("ADDING NEW ODOMETRY TO MAIN GRAPH");
+  // DEBUG(PRINT_VAR(new_odometry_info.odom_ref.translation().transpose()));
+  // DEBUG(PRINT_VAR(new_odometry_info.increment.translation().transpose()));
+  if (std::isnan(new_odometry_info.odom_ref.translation().x())) {
+    DEBUG(PRINT_VAR(_new_odometry.odometry.translation().transpose()));
+    ERROR("Odometry is NaN");
+    return false;
+  }
 
   main_graph->addNewKeyframe(
     new_odometry_info.map_ref, new_odometry_info.increment,
@@ -245,7 +258,7 @@ bool OptimizerG2O::checkAddingNewDetection(
     temp_graph_generated_ = true;
     // main_graph_object_covariance = _object->getCovarianceMatrix();  // FIXME(dps): remove this
   } else {
-    if (!checkAddingConditions(_detection_odometry_info, obj_odometry_distance_threshold_)) {
+    if (!checkAddingConditions(_detection_odometry_info, tmep_graph_odometry_distance_threshold_)) {
       // INFO(
       //   "New odometry distance is not enough: " <<
       //     detection_odometry_info.increment.translation().norm());
@@ -279,6 +292,18 @@ void OptimizerG2O::handleNewObjectDetection(
   // debugGraphVertices(temp_graph);
   // temp_graph->optimizeGraph();
   // debugGraphVertices(temp_graph);
+}
+
+void OptimizerG2O::setParameters(const OptimizerG2OParameters & _params)
+{
+  main_graph_odometry_distance_threshold_ = _params.main_graph_odometry_distance_threshold;
+  main_graph_odometry_orientation_threshold_ = _params.main_graph_odometry_orientation_threshold;
+  tmep_graph_odometry_distance_threshold_ = _params.temp_graph_odometry_distance_threshold;
+  temp_graph_odometry_orientation_threshold_ = _params.temp_graph_odometry_orientation_threshold;
+  odometry_is_relative_ = _params.odometry_is_relative;
+  generate_odom_map_transform_ = _params.generate_odom_map_transform;
+  fixed_objects_ = _params.fixed_objects;
+  main_graph->setFixedObjects(fixed_objects_);
 }
 
 void OptimizerG2O::updateOdomMapTransform()

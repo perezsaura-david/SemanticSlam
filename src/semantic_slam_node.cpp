@@ -42,8 +42,12 @@
 
 int main(int argc, char ** argv)
 {
+  rclcpp::NodeOptions modified_options;
+  modified_options.allow_undeclared_parameters(true);
+  modified_options.automatically_declare_parameters_from_overrides(true);
+
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<SemanticSlam>();
+  auto node = std::make_shared<SemanticSlam>(modified_options);
   rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;

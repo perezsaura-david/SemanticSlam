@@ -65,42 +65,16 @@
 class SemanticSlam : public as2::Node
 {
 public:
-  SemanticSlam();
+  SemanticSlam(rclcpp::NodeOptions & options);
   ~SemanticSlam() {}
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
+  void poseStampedCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
+
+  void detectionsCallback(const as2_msgs::msg::PoseStampedWithIDArray::SharedPtr msg);
   void arucoPoseCallback(const as2_msgs::msg::PoseStampedWithID::SharedPtr msg);
   void gatePoseCallback(const as2_msgs::msg::PoseStampedWithID::SharedPtr msg);
-  void detectionsCallback(const as2_msgs::msg::PoseStampedWithIDArray::SharedPtr msg);
 
 private:
-  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
-  rclcpp::Subscription<as2_msgs::msg::PoseStampedWithID>::SharedPtr aruco_pose_sub_;
-  rclcpp::Subscription<as2_msgs::msg::PoseStampedWithID>::SharedPtr gate_pose_sub_;
-  rclcpp::Subscription<as2_msgs::msg::PoseStampedWithIDArray>::SharedPtr detections_sub_;
-
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr viz_main_markers_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr viz_temp_markers_pub_;
-
-  rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr
-    corrected_localization_pub_;
-  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr corrected_path_pub_;
-
-  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
-  std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
-
-  std::string map_frame_;
-  std::string odom_frame_;
-  std::string robot_frame_;
-  bool odometry_is_relative_ = false;
-
-  std::unique_ptr<OptimizerG2O> optimizer_ptr_;  // g2o graph
-
-  OdometryWithCovariance last_odometry_received_;
-  geometry_msgs::msg::TransformStamped map_odom_transform_msg_;
-
-  // Eigen::Isometry3d generatePoseFromMsg(
-  //   const std::shared_ptr<as2_msgs::msg::PoseStampedWithID> & _msg);
   Eigen::Isometry3d generatePoseFromMsg(
     const as2_msgs::msg::PoseStampedWithID & _msg);
 
@@ -113,6 +87,10 @@ private:
   visualization_msgs::msg::MarkerArray generateCleanMarkersMsg();
   void updateMapOdomTransform(const std_msgs::msg::Header & _header);
 
+  void processOdometryReceived(
+    const Eigen::Isometry3d _odom_pose,
+    const Eigen::MatrixXd _odom_covariance,
+    const std_msgs::msg::Header & _header);
   void processArucoMsg(const as2_msgs::msg::PoseStampedWithID _msg);
   void processGateMsg(const as2_msgs::msg::PoseStampedWithID _msg);
   void processArucoMsg(
@@ -121,6 +99,36 @@ private:
   void processGateMsg(
     const as2_msgs::msg::PoseStampedWithID _msg,
     const OdometryInfo _detection_odometry_info);
+
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
+
+  rclcpp::Subscription<as2_msgs::msg::PoseStampedWithIDArray>::SharedPtr detections_sub_;
+  rclcpp::Subscription<as2_msgs::msg::PoseStampedWithID>::SharedPtr aruco_pose_sub_;
+  rclcpp::Subscription<as2_msgs::msg::PoseStampedWithID>::SharedPtr gate_pose_sub_;
+
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr viz_main_markers_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr viz_temp_markers_pub_;
+
+  rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr
+    corrected_localization_pub_;
+  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr corrected_path_pub_;
+
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
+  std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+
+  std::unique_ptr<OptimizerG2O> optimizer_ptr_;  // g2o graph
+
+  OdometryWithCovariance last_odometry_received_;
+  geometry_msgs::msg::TransformStamped map_odom_transform_msg_;
+
+  // PARAMETERS
+  std::string map_frame_;
+  std::string odom_frame_;
+  std::string robot_frame_;
+  bool odometry_is_relative_ = false;
+
   // std::filesystem::path plugin_name_;
   // std::shared_ptr<pluginlib::ClassLoader<as2_state_estimator_plugin_base::StateEstimatorBase>>
   //     loader_;

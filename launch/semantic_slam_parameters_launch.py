@@ -28,43 +28,38 @@
 
 """Launch file for semantic SLAM."""
 
-import os
+# import os
 from launch_ros.actions import Node
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
-from as2_core.declare_launch_arguments_from_config_file import DeclareLaunchArgumentsFromConfigFile
-from as2_core.launch_configuration_from_config_file import LaunchConfigurationFromConfigFile
-from ament_index_python.packages import get_package_share_directory
+# from ament_index_python.packages import get_package_share_directory
 
 
 def generate_launch_description():
-    package_folder = get_package_share_directory(
-        'as2_slam')
-    config_file = os.path.join(package_folder, 'config', 'config.yaml')
-
     """Launch semantic SLAM node."""
     return LaunchDescription([
-        DeclareLaunchArgument('namespace',
-                              description='Drone namespace',
-                              default_value='drone'),
-
-        DeclareLaunchArgument('use_sim_time',
-                              description='Use simulation clock',
-                              default_value='True'),
-
-        DeclareLaunchArgumentsFromConfigFile('config_file',
-                                             config_file,
-                                             description='Configuration file'),
         Node(
             package='as2_slam',
-            namespace=LaunchConfiguration('namespace'),
             executable='as2_slam_node',
             name='semantic_slam_node',
             output='screen',
-            parameters=[LaunchConfiguration('use_sim_time'),
-                        LaunchConfigurationFromConfigFile(
-                            'config_file', default_file=config_file),
+            parameters=[{'use_sim_time': True},
+                        # SemanticSLAM
+                        {'odometry_topic': '/drone0/odometry'},
+                        {'detections_topic': '/drone0/processed_gate_poses_array'},
+                        {'corrected_localization_topic': '/drone0/slam/corrected_localization'},
+                        {'map_frame': 'drone0/map'},
+                        {'odom_frame': 'drone0/odom'},
+                        {'robot_frame': 'drone0/base_link'},
+                        {'viz_main_markers_topic': 'slam_viz/markers/main'},
+                        {'viz_temp_markers_topic': 'slam_viz/markers/temp'},
+                        # OptimizerG2O
+                        {'main_graph_odometry_distance_threshold': 2.0},
+                        {'main_graph_odometry_orientation_threshold': 1.0},
+                        {'temp_graph_odometry_distance_threshold': 2.0},
+                        {'temp_graph_odometry_orientation_threshold': 0.1},
+                        {'odometry_is_relative': False},
+                        {'generate_odom_map_transform': False},
+                        # {'fixed_objects': []},
                         ],
             emulate_tty=True,
         ),

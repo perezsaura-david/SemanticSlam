@@ -36,6 +36,7 @@
  */
 
 #include "as2_slam/semantic_slam.hpp"
+#include <Eigen/src/Core/Matrix.h>
 #include <Eigen/src/Geometry/Transform.h>
 #include <g2o/core/optimizable_graph.h>
 #include <geometry_msgs/msg/detail/pose_stamped__struct.hpp>
@@ -57,10 +58,11 @@
 // #include <pluginlib/class_loader.hpp>
 // #include "plugin_base.hpp"
 
-SemanticSlam::SemanticSlam()
-: as2::Node("semantic_slam")
+SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
+: as2::Node("semantic_slam", options)
 {
   std::string default_odom_topic = "drone/sensor_measurements/odom";
+  std::string default_pose_topic = "drone/self_localization/pose";
   std::string default_corrected_localization_topic = "drone/slam/corrected_localization";
   std::string default_corrected_path_topic = "drone/slam/corrected_path";
   std::string default_aruco_pose_topic = "drone/detections/aruco";
@@ -71,39 +73,189 @@ SemanticSlam::SemanticSlam()
   std::string default_map_frame = "drone/map";
   std::string default_odom_frame = "drone/odom";
   std::string default_robot_frame = "drone/base_link";
+  double default_main_graph_odometry_distance_threshold = 2.0;
+  double default_main_graph_odometry_orientation_threshold = 2.0;
+  double default_temp_graph_odometry_distance_threshold = 0.1;
+  double default_temp_graph_odometry_orientation_threshold = 0.1;
+  bool default_odometry_is_relative = false;
+  bool default_generate_odom_map_transform = false;
+  std::vector<std::pair<std::string, Eigen::Vector4d>> default_fixed_objects = {
+    {"gate_1", Eigen::Vector4d(5.6, 1.5, 1.375, 0.0)},
+    // {"gate_2", Eigen::Vector4d(14.3, -1.06, 1.375, 0.0)},
+  };
+
 
   rclcpp::QoS reliable_qos = rclcpp::QoS(10);
   rclcpp::QoS sensor_qos = rclcpp::SensorDataQoS();
 
-  // PARAMETERS
-  std::string odom_topic = this->declare_parameter("odometry_topic", default_odom_topic);
-  std::string corrected_localization_topic = this->declare_parameter(
-    "localization_topic", default_corrected_localization_topic);
-  std::string aruco_pose_topic =
-    this->declare_parameter("aruco_pose_topic", default_aruco_pose_topic);
-  std::string gate_pose_topic =
-    this->declare_parameter("gate_pose_topic", default_gate_pose_topic);
-  std::string detections_topic =
-    this->declare_parameter("detections_topic", default_detections_topic);
-  map_frame_ =
-    this->declare_parameter<std::string>("map_frame", default_map_frame);
-  odom_frame_ =
-    this->declare_parameter<std::string>("odom_frame", default_odom_frame);
-  robot_frame_ = this->declare_parameter<std::string>("robot_frame", default_robot_frame);
-  // VISUALIZATION
-  std::string viz_main_markers_topic =
-    this->declare_parameter("viz_main_markers_topic", default_viz_main_markers_topic);
-  std::string viz_temp_markers_topic =
-    this->declare_parameter("viz_temp_markers_topic", default_viz_temp_markers_topic);
+  // // PARAMETERS
+  // std::string odom_topic = this->declare_parameter("odometry_topic", default_odom_topic);
+  // std::string pose_topic = this->declare_parameter("pose_topic", default_pose_topic);
+  // std::string corrected_localization_topic = this->declare_parameter(
+  //   "corrected_localization_topic", default_corrected_localization_topic);
+  // std::string aruco_pose_topic =
+  //   this->declare_parameter("aruco_pose_topic", default_aruco_pose_topic);
+  // std::string gate_pose_topic =
+  //   this->declare_parameter("gate_pose_topic", default_gate_pose_topic);
+  // std::string detections_topic =
+  //   this->declare_parameter("detections_topic", default_detections_topic);
+  // map_frame_ =
+  //   this->declare_parameter<std::string>("map_frame", default_map_frame);
+  // odom_frame_ =
+  //   this->declare_parameter<std::string>("odom_frame", default_odom_frame);
+  // robot_frame_ = this->declare_parameter<std::string>("robot_frame", default_robot_frame);
+  // // VISUALIZATION
+  // std::string viz_main_markers_topic =
+  //   this->declare_parameter("viz_main_markers_topic", default_viz_main_markers_topic);
+  // std::string viz_temp_markers_topic =
+  //   this->declare_parameter("viz_temp_markers_topic", default_viz_temp_markers_topic);
+  // // OPTIMIZER PARAMETERS
+  // OptimizerG2OParameters optimizer_params;
+  // optimizer_params.main_graph_odometry_distance_threshold = this->declare_parameter(
+  //   "main_graph_odometry_distance_threshold", default_main_graph_odometry_distance_threshold);
+  // optimizer_params.main_graph_odometry_orientation_threshold = this->declare_parameter(
+  //   "main_graph_odometry_orientation_threshold", default_main_graph_odometry_orientation_threshold);
+  // optimizer_params.temp_graph_odometry_distance_threshold = this->declare_parameter(
+  //   "temp_graph_odometry_distance_threshold", default_temp_graph_odometry_distance_threshold);
+  // optimizer_params.temp_graph_odometry_orientation_threshold = this->declare_parameter(
+  //   "temp_graph_odometry_orientation_threshold", default_temp_graph_odometry_orientation_threshold);
+  // optimizer_params.odometry_is_relative = this->declare_parameter(
+  //   "odometry_is_relative", default_odometry_is_relative);
+  // optimizer_params.generate_odom_map_transform = this->declare_parameter(
+  //   "generate_odom_map_transform", default_generate_odom_map_transform);
+  // // optimizer_params.fixed_objects = this->declare_parameter(
+  // //   "fixed_objects_list", default_fixed_objects);
+  //
+// PARAMETERS
+  std::string odometry_topic = this->get_parameter("odometry_topic").as_string();
+  std::string pose_topic = this->get_parameter("pose_topic").as_string();
+  std::string corrected_localization_topic =
+    this->get_parameter("corrected_localization_topic").as_string();
+  // std::string aruco_pose_topic = this->get_parameter("aruco_pose_topic").as_string();
+  // std::string gate_pose_topic = this->get_parameter("gate_pose_topic").as_string();
+  std::string detections_topic = this->get_parameter("detections_topic").as_string();
+  map_frame_ = this->get_parameter("map_frame").as_string();
+  odom_frame_ = this->get_parameter("odom_frame").as_string();
+  robot_frame_ = this->get_parameter("robot_frame").as_string();
+
+// VISUALIZATION
+  std::string viz_main_markers_topic = this->get_parameter("viz_main_markers_topic").as_string();
+  std::string viz_temp_markers_topic = this->get_parameter("viz_temp_markers_topic").as_string();
+
+// OPTIMIZER PARAMETERS
+  OptimizerG2OParameters optimizer_params;
+  optimizer_params.main_graph_odometry_distance_threshold = this->get_parameter(
+    "main_graph_odometry_distance_threshold").as_double();
+  optimizer_params.main_graph_odometry_orientation_threshold = this->get_parameter(
+    "main_graph_odometry_orientation_threshold").as_double();
+  optimizer_params.temp_graph_odometry_distance_threshold = this->get_parameter(
+    "temp_graph_odometry_distance_threshold").as_double();
+  optimizer_params.temp_graph_odometry_orientation_threshold = this->get_parameter(
+    "temp_graph_odometry_orientation_threshold").as_double();
+  optimizer_params.odometry_is_relative = this->get_parameter("odometry_is_relative").as_bool();
+  optimizer_params.generate_odom_map_transform =
+    this->get_parameter("generate_odom_map_transform").as_bool();
+
+  // Storage for parsed gates
+  std::map<std::string, std::pair<std::string, std::vector<double>>> fixed_objects;
+
+// List all parameters that start with "fixed_poses"
+  auto result = this->list_parameters({"fixed_objects"}, 3);
+
+// If empty, warn and return
+  if (result.names.empty()) {
+    RCLCPP_WARN(
+      this->get_logger(), "No fixed_objects parameters found. "
+      "Please set the fixed_objects parameters.");
+    return;
+  }
+
+  // Iterate through all parameters found
+  for (const auto & param_name : result.names) {
+    // Extract gate name by removing "fixed_objects." prefix
+    std::string fixed_object_prefix = "fixed_objects.";
+    if (param_name.find(fixed_object_prefix) != 0) {
+      continue; // Safety check
+    }
+
+    // Extract gate ID and check if it's for type or pose
+    std::string fixed_object_id = param_name.substr(fixed_object_prefix.length());
+
+    size_t dot_pos = fixed_object_id.rfind('.');
+    if (dot_pos == std::string::npos) {
+      continue; // Ignore invalid parameters
+    }
+
+    std::string object_id = fixed_object_id.substr(0, dot_pos);
+    std::string suffix = fixed_object_id.substr(dot_pos + 1);
+
+    // Ensure an entry exists for this object
+    if (fixed_objects.find(object_id) == fixed_objects.end()) {
+      fixed_objects[object_id] = {"", {}}; // Initialize with empty values
+    }
+
+    if (suffix == "type") {
+      std::string object_type;
+      if (!this->get_parameter(param_name, object_type)) {
+        RCLCPP_WARN(this->get_logger(), "Failed to read 'type' for %s.", object_id.c_str());
+        continue;
+      }
+      fixed_objects[object_id].first = object_type; // Store object type
+    } else if (suffix == "pose") {
+      std::vector<double> pose;
+      // FIXME: Pose may be 4 (yaw only), 6 (euler angles), or 7 (quaternion)
+      if (!this->get_parameter(param_name, pose) || pose.size() != 4) {
+        RCLCPP_WARN(this->get_logger(), "Invalid or missing pose for %s.", object_id.c_str());
+        continue;
+      }
+      fixed_objects[object_id].second = pose; // Store pose
+    }
+  }
+
+  // Print parsed objects
+  RCLCPP_INFO(this->get_logger(), "Fixed objects:");
+  for (const auto &[id, data] : fixed_objects) {
+    if (data.first.empty() || data.second.empty()) {
+      RCLCPP_WARN(this->get_logger(), "Incomplete data for object %s.", id.c_str());
+      continue;
+    }
+    RCLCPP_INFO(
+      this->get_logger(),
+      "ID: %s, Type: %s, Pose: [%.2f, %.2f, %.2f, %.2f]",
+      id.c_str(), data.first.c_str(),
+      data.second[0], data.second[1], data.second[2], data.second[3]
+    );
+  }
+
+  for (const auto &[id, data] : fixed_objects) {
+    if (data.first.empty() || data.second.empty()) {
+      RCLCPP_WARN(this->get_logger(), "Incomplete data for object %s.", id.c_str());
+      continue;
+    }
+    FixedObject fixed_object;
+    fixed_object.id = id;
+    fixed_object.type = data.first;
+    Eigen::Vector3d object_position =
+      Eigen::Vector3d(data.second[0], data.second[1], data.second[2]);
+    double yaw = data.second[3];
+    Eigen::Quaterniond orientation(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
+    fixed_object.isometry = convertToIsometry3d(object_position, orientation);
+    optimizer_params.fixed_objects.emplace_back(fixed_object);
+  }
 
   odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-    odom_topic, sensor_qos, std::bind(&SemanticSlam::odomCallback, this, std::placeholders::_1));
-  aruco_pose_sub_ = this->create_subscription<as2_msgs::msg::PoseStampedWithID>(
-    aruco_pose_topic, sensor_qos,
-    std::bind(&SemanticSlam::arucoPoseCallback, this, std::placeholders::_1));
-  gate_pose_sub_ = this->create_subscription<as2_msgs::msg::PoseStampedWithID>(
-    gate_pose_topic, sensor_qos,
-    std::bind(&SemanticSlam::gatePoseCallback, this, std::placeholders::_1));
+    odometry_topic, sensor_qos,
+    std::bind(&SemanticSlam::odomCallback, this, std::placeholders::_1));
+  pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+    pose_topic, sensor_qos,
+    std::bind(&SemanticSlam::poseStampedCallback, this, std::placeholders::_1));
+
+  // aruco_pose_sub_ = this->create_subscription<as2_msgs::msg::PoseStampedWithID>(
+  //   aruco_pose_topic, sensor_qos,
+  //   std::bind(&SemanticSlam::arucoPoseCallback, this, std::placeholders::_1));
+  // gate_pose_sub_ = this->create_subscription<as2_msgs::msg::PoseStampedWithID>(
+  //   gate_pose_topic, sensor_qos,
+  //   std::bind(&SemanticSlam::gatePoseCallback, this, std::placeholders::_1));
   detections_sub_ = this->create_subscription<as2_msgs::msg::PoseStampedWithIDArray>(
     detections_topic, sensor_qos,
     std::bind(&SemanticSlam::detectionsCallback, this, std::placeholders::_1));
@@ -123,6 +275,7 @@ SemanticSlam::SemanticSlam()
     viz_temp_markers_topic, reliable_qos);
 
   optimizer_ptr_ = std::make_unique<OptimizerG2O>();
+  optimizer_ptr_->setParameters(optimizer_params);
 
   std_msgs::msg::Header header;
   header.stamp = this->get_clock()->now();
@@ -131,18 +284,34 @@ SemanticSlam::SemanticSlam()
 
 ////// CALLBACKS //////
 
-void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
+void SemanticSlam::poseStampedCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
 {
+  // WARN(msg->pose.position.x);
+  // WARN(msg->pose.position.y);
+  // WARN(msg->pose.position.z);
+  Eigen::Isometry3d pose = convertToIsometry3d(msg->pose);
+  Eigen::MatrixXd covariance = Eigen::MatrixXd::Identity(6, 6) * 0.001;
+
+  processOdometryReceived(pose, covariance, msg->header);
+}
+
+void SemanticSlam::processOdometryReceived(
+  const Eigen::Isometry3d _odom_pose,
+  const Eigen::MatrixXd _odom_covariance,
+  const std_msgs::msg::Header & _header)
+{
+  if (_odom_pose.translation().isZero()) {return;}
+
   DEBUG_START_TIMER
-  Eigen::Isometry3d odom_pose = convertToIsometry3d(msg->pose.pose);
-  Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> odom_covariance(
-    msg->pose.covariance.data());
-
-  if (odom_pose.translation().isZero()) {return;}
-
   OdometryWithCovariance odometry_received_;
-  odometry_received_.odometry = odom_pose;
-  odometry_received_.covariance = odom_covariance * 100;
+  odometry_received_.odometry = _odom_pose;
+  odometry_received_.covariance = _odom_covariance;
+  // odometry_received_.covariance(3, 3) *= 10e2;
+  // odometry_received_.covariance(4, 4) *= 10e2;
+  // odometry_received_.covariance(5, 5) *= 10e2;
+  // odometry_received_.covariance *= 10e3;
+
+  // DEBUG(PRINT_VAR(odometry_received_.covariance));
 
   // TODO(dps): Define how to use this
   // msg->header.stamp;
@@ -153,36 +322,47 @@ void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
   if (new_node_added) {
     visualizeMainGraph();
     visualizeCleanTempGraph();
-    updateMapOdomTransform(msg->header);
+    updateMapOdomTransform(_header);
     DEBUG_LOG_DURATION
   }
 
-  map_odom_transform_msg_.header.stamp = msg->header.stamp;
+  map_odom_transform_msg_.header.stamp = _header.stamp;
   tf_broadcaster_->sendTransform(map_odom_transform_msg_);
 
   // Get map_odom_transform from optimizer and publish corrected localization
   Eigen::Isometry3d map_odom_transform = optimizer_ptr_->getMapOdomTransform();
-  Eigen::Isometry3d corrected_odometry_pose = map_odom_transform * odom_pose;
+  Eigen::Isometry3d corrected_odometry_pose = map_odom_transform * _odom_pose;
   geometry_msgs::msg::PoseWithCovarianceStamped corrected_localization_msg;
   geometry_msgs::msg::PoseStamped pose_stamped_msg;
   pose_stamped_msg.pose = convertToGeometryMsgPose(corrected_odometry_pose);
   corrected_localization_msg.pose.pose = pose_stamped_msg.pose;
-  corrected_localization_msg.header.stamp = msg->header.stamp;
+  corrected_localization_msg.header.stamp = _header.stamp;
   corrected_localization_msg.header.frame_id = map_frame_;
   corrected_localization_pub_->publish(corrected_localization_msg);
 
   // Publish corrected Path
   static nav_msgs::msg::Path corrected_path_msg;
-  corrected_path_msg.header.stamp = msg->header.stamp;
+  corrected_path_msg.header.stamp = _header.stamp;
   corrected_path_msg.header.frame_id = map_frame_;
   corrected_path_msg.poses.emplace_back(pose_stamped_msg);
   corrected_path_pub_->publish(corrected_path_msg);
+}
 
+void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
+{
+  Eigen::Isometry3d odom_pose = convertToIsometry3d(msg->pose.pose);
+  Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> odom_covariance(
+    msg->pose.covariance.data());
+  processOdometryReceived(odom_pose, odom_covariance, msg->header);
 }
 
 void SemanticSlam::detectionsCallback(
   const as2_msgs::msg::PoseStampedWithIDArray::SharedPtr msg)
 {
+  if (last_odometry_received_.odometry.translation().isZero()) {
+    WARN("Detection received before odometry info");
+    return;
+  }
   DEBUG_START_TIMER
   OdometryInfo detection_odometry_info;
   if (!optimizer_ptr_->checkAddingNewDetection(last_odometry_received_, detection_odometry_info)) {
@@ -199,7 +379,7 @@ void SemanticSlam::detectionsCallback(
       processGateMsg(detection, detection_odometry_info);
     }
   }
-  DEBUG_LOG_DURATION
+  // DEBUG_LOG_DURATION
 }
 
 void SemanticSlam::arucoPoseCallback(const as2_msgs::msg::PoseStampedWithID::SharedPtr msg)
@@ -248,7 +428,7 @@ void SemanticSlam::processArucoMsg(
   // TODO(dps): Define how to use this
   // msg->pose.header.stamp;
   Eigen::Isometry3d aruco_pose = generatePoseFromMsg(_msg);
-  Eigen::Matrix<double, 6, 6> aruco_covariance = Eigen::MatrixXd::Identity(6, 6) * 0.001;
+  Eigen::Matrix<double, 6, 6> aruco_covariance = Eigen::MatrixXd::Identity(6, 6) * 0.1;
   // aruco_covariance(0) = 0.001;
   // aruco_covariance(7) = 0.001;
   // aruco_covariance(14) = 0.001;

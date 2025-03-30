@@ -135,7 +135,6 @@ target_link_libraries(${PROJECT_NAME}_node
 
 install(TARGETS
   ${PROJECT_NAME}_node
-  # g2o_3D_slam
   DESTINATION lib/${PROJECT_NAME})
 
 # For each plugin, install config files
@@ -150,6 +149,11 @@ install(TARGETS
 
 install(
   DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}
+)
+
+install(
+  DIRECTORY config
   DESTINATION share/${PROJECT_NAME}
 )
 

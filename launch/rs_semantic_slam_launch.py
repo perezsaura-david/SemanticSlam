@@ -28,43 +28,28 @@
 
 """Launch file for semantic SLAM."""
 
-import os
+# import os
 from launch_ros.actions import Node
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
-from as2_core.declare_launch_arguments_from_config_file import DeclareLaunchArgumentsFromConfigFile
-from as2_core.launch_configuration_from_config_file import LaunchConfigurationFromConfigFile
-from ament_index_python.packages import get_package_share_directory
+# from ament_index_python.packages import get_package_share_directory
 
 
 def generate_launch_description():
-    package_folder = get_package_share_directory(
-        'as2_slam')
-    config_file = os.path.join(package_folder, 'config', 'config.yaml')
-
     """Launch semantic SLAM node."""
     return LaunchDescription([
-        DeclareLaunchArgument('namespace',
-                              description='Drone namespace',
-                              default_value='drone'),
-
-        DeclareLaunchArgument('use_sim_time',
-                              description='Use simulation clock',
-                              default_value='True'),
-
-        DeclareLaunchArgumentsFromConfigFile('config_file',
-                                             config_file,
-                                             description='Configuration file'),
         Node(
             package='as2_slam',
-            namespace=LaunchConfiguration('namespace'),
             executable='as2_slam_node',
             name='semantic_slam_node',
             output='screen',
-            parameters=[LaunchConfiguration('use_sim_time'),
-                        LaunchConfigurationFromConfigFile(
-                            'config_file', default_file=config_file),
+            parameters=[{'use_sim_time': True},
+                        {'pose_topic': '/drone0/self_localization/pose'},
+                        {'detections_topic': '/drone0/processed_gate_poses_array'},
+                        {'map_frame': 'drone0/map'},
+                        {'odom_frame': 'drone0/odom'},
+                        {'robot_frame': 'drone0/base_link'},
+                        {'viz_main_markers_topic': 'slam_viz/markers/main'},
+                        {'viz_temp_markers_topic': 'slam_viz/markers/temp'},
                         ],
             emulate_tty=True,
         ),

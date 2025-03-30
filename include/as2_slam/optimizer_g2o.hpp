@@ -53,6 +53,17 @@
 #include "utils/conversions.hpp"
 #include "utils/general_utils.hpp"
 
+struct OptimizerG2OParameters
+{
+  double main_graph_odometry_distance_threshold;     // meters
+  double main_graph_odometry_orientation_threshold;  // radians
+  double temp_graph_odometry_distance_threshold;     // meters
+  double temp_graph_odometry_orientation_threshold;  // radians
+  bool odometry_is_relative;
+  bool generate_odom_map_transform;
+  std::vector<FixedObject> fixed_objects;
+};
+
 class OptimizerG2O
 {
 public:
@@ -60,15 +71,15 @@ public:
   ~OptimizerG2O() {}
   std::shared_ptr<GraphG2O> main_graph;
   std::shared_ptr<GraphG2O> temp_graph;
+  void setParameters(const OptimizerG2OParameters & _params);
+  Eigen::Isometry3d getOptimizedPose();
+  Eigen::Isometry3d getMapOdomTransform();
 
   bool handleNewOdom(
     const OdometryWithCovariance & _new_odometry);
   void handleNewObjectDetection(
     ObjectDetection * _object,
     const OdometryInfo & _detection_odometry_info);
-  // bool handleNewObjectDetection(
-  //   ObjectDetection * _object,
-  //   const OdometryWithCovariance & _detection_odometry);
   bool generateOdometryInfo(
     const OdometryWithCovariance & _new_odometry,
     const OdometryWithCovariance & _last_odometry_added,
@@ -80,9 +91,6 @@ public:
   bool checkAddingConditions(
     const OdometryInfo & _odometry, const double distance_threshold);
 
-  Eigen::Isometry3d getOptimizedPose();
-  Eigen::Isometry3d getMapOdomTransform();
-
 private:
   bool first_odom_ = true;
   bool temp_graph_generated_ = false;
@@ -90,19 +98,19 @@ private:
   // TODO(dps): add time_threshold_
   double translation_distance_from_last_node_ = 0.0;
   double rotation_distance_from_last_node_ = 0.0;
-
-  Eigen::MatrixXd main_graph_object_covariance;
-  Eigen::Isometry3d map_odom_tranform_;
   OdometryWithCovariance last_odometry_added_;
   OdometryWithCovariance last_detection_odometry_added_;
+  Eigen::Isometry3d map_odom_tranform_;
+  Eigen::MatrixXd main_graph_object_covariance;
 
   // PARAMETERS
-  double odometry_distance_threshold_ = 2.0;         // meters
-  double odometry_orientation_threshold_ = 1.0;      // radians
-  double obj_odometry_distance_threshold_ = 0.1;     // meters
-  double obj_odometry_orientation_threshold_ = 0.2;  // radians
+  double main_graph_odometry_distance_threshold_ = 1.0;     // meters
+  double main_graph_odometry_orientation_threshold_ = 1.0;  // radians
+  double tmep_graph_odometry_distance_threshold_ = 0.1;     // meters
+  double temp_graph_odometry_orientation_threshold_ = 0.1;  // radians
   bool odometry_is_relative_ = false;
-  bool generate_odom_map_transform_ = true;
+  bool generate_odom_map_transform_ = false;
+  std::vector<FixedObject> fixed_objects_;
 };
 
 #endif  // AS2_SLAM__OPTIMIZER_G2O_HPP_
