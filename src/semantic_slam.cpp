@@ -350,10 +350,36 @@ void SemanticSlam::processOdometryReceived(
 
 void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
-  Eigen::Isometry3d odom_pose = convertToIsometry3d(msg->pose.pose);
+  bool open_vins = true;
+  if (msg->header.frame_id == "global" && msg->child_frame_id == "imu") {
+    DEBUG("Using OpenVINS odometry");
+    nav_msgs::msg::Odometry odom_pose = *msg;
+    // Create a quaternion representing a 180-degree rotation around the Z axis
+    tf2::Quaternion rotation_z_180;
+    rotation_z_180.setRPY(0, 0, M_PI); // Roll = 0, Pitch = 0, Yaw = π (180°)
+    // Convert the original orientation from geometry_msgs to tf2
+    tf2::Quaternion original_orientation;
+    original_orientation.setX(msg->pose.pose.orientation.x);
+    original_orientation.setY(msg->pose.pose.orientation.y);
+    original_orientation.setZ(msg->pose.pose.orientation.z);
+    original_orientation.setW(msg->pose.pose.orientation.w);
+    // Apply the rotation
+    tf2::Quaternion new_orientation = rotation_z_180 * original_orientation;
+    new_orientation.normalize();
+    // Set the new orientation back to the message
+    odom_pose.pose.pose.orientation = tf2::toMsg(new_orientation);
+    // Set the new position
+    odom_pose.pose.pose.position.x *= -1.0;
+    odom_pose.pose.pose.position.y *= -1.0;
+    odom_pose.header.frame_id = odom_frame_;
+    odom_pose.child_frame_id = robot_frame_;
+    Eigen::Isometry3d odom_isometry = convertToIsometry3d(odom_pose.pose.pose);
+  }
+
+  Eigen::Isometry3d odom_isometry = convertToIsometry3d(msg->pose.pose);
   Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> odom_covariance(
     msg->pose.covariance.data());
-  processOdometryReceived(odom_pose, odom_covariance, msg->header);
+  processOdometryReceived(odom_isometry, odom_covariance, msg->header);
 }
 
 void SemanticSlam::detectionsCallback(
