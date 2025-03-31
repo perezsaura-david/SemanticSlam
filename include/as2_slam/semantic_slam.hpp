@@ -128,6 +128,7 @@ private:
   std::string odom_frame_;
   std::string robot_frame_;
   bool odometry_is_relative_ = false;
+  std::string force_object_type_;
 
   // std::filesystem::path plugin_name_;
   // std::shared_ptr<pluginlib::ClassLoader<as2_state_estimator_plugin_base::StateEstimatorBase>>

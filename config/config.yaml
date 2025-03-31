@@ -2,8 +2,8 @@
 
 /**:
   ros__parameters:
-    odometry_topic: "odometry"
-    pose_topic: "none"
+    odometry_topic: ""
+    pose_topic: ""
     detections_topic: "processed_gate_poses_array"
     corrected_localization_topic: "slam/corrected_localization"
     map_frame: "drone0/map"
@@ -11,6 +11,7 @@
     robot_frame: "drone0/base_link"
     viz_main_markers_topic: "slam_viz/markers/main"
     viz_temp_markers_topic: "slam_viz/markers/temp"
+    corrected_path_topic : "slam/corrected_path"
     main_graph_odometry_distance_threshold: 2.0
     main_graph_odometry_orientation_threshold: 1.0
     temp_graph_odometry_distance_threshold: 0.2
