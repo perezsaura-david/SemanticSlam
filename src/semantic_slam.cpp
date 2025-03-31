@@ -38,6 +38,7 @@
 #include "as2_slam/semantic_slam.hpp"
 #include <Eigen/src/Core/Matrix.h>
 #include <Eigen/src/Geometry/Transform.h>
+#include <eigen3/Eigen/src/Geometry/Transform.h>
 #include <g2o/core/optimizable_graph.h>
 #include <geometry_msgs/msg/detail/pose_stamped__struct.hpp>
 #include <geometry_msgs/msg/detail/pose_with_covariance_stamped__struct.hpp>
@@ -350,9 +351,13 @@ void SemanticSlam::processOdometryReceived(
 
 void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
-  bool open_vins = true;
+  Eigen::Isometry3d odom_isometry;
   if (msg->header.frame_id == "global" && msg->child_frame_id == "imu") {
-    DEBUG("Using OpenVINS odometry");
+    RCLCPP_WARN_ONCE(
+      this->get_logger(),
+      "Received odometry with frame_id 'global' and child_frame_id 'imu'. "
+      "This is likely an OpenVINS odometry message. "
+      "The odometry will be transformed to the correct frame.");
     nav_msgs::msg::Odometry odom_pose = *msg;
     // Create a quaternion representing a 180-degree rotation around the Z axis
     tf2::Quaternion rotation_z_180;
@@ -373,10 +378,11 @@ void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
     odom_pose.pose.pose.position.y *= -1.0;
     odom_pose.header.frame_id = odom_frame_;
     odom_pose.child_frame_id = robot_frame_;
-    Eigen::Isometry3d odom_isometry = convertToIsometry3d(odom_pose.pose.pose);
+    odom_isometry = convertToIsometry3d(odom_pose.pose.pose);
   }
-
-  Eigen::Isometry3d odom_isometry = convertToIsometry3d(msg->pose.pose);
+  else {
+    odom_isometry = convertToIsometry3d(msg->pose.pose);
+  }
   Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> odom_covariance(
     msg->pose.covariance.data());
   processOdometryReceived(odom_isometry, odom_covariance, msg->header);
