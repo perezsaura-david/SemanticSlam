@@ -365,6 +365,10 @@ void SemanticSlam::detectionsCallback(
   } else {
     object_type = force_object_type_;
   }
+  if (object_type.empty()) {
+    WARN("No object type provided. Force object type or use 'type' field in msg");
+    return;
+  }
   for (auto & detection : msg->poses) {
     if (object_type == "aruco") {
       processArucoMsg(detection, detection_odometry_info);
