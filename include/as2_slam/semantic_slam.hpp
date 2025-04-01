@@ -42,6 +42,7 @@
 
 // ROS2
 #include <Eigen/Dense>
+#include <Eigen/src/Geometry/Transform.h>
 #include <geometry_msgs/msg/detail/pose_with_covariance__struct.hpp>
 #include <geometry_msgs/msg/detail/pose_with_covariance_stamped__struct.hpp>
 #include <tf2_ros/buffer.h>
@@ -77,6 +78,10 @@ public:
 private:
   Eigen::Isometry3d generatePoseFromMsg(
     const as2_msgs::msg::PoseStampedWithID & _msg);
+  void parseFixedObjects(
+    const rcl_interfaces::msg::ListParametersResult & _result,
+    std::map<std::string, std::pair<std::string, std::vector<double>>> & fixed_objects,
+    OptimizerG2OParameters & optimizer_params);
 
   void visualizeCleanTempGraph();
   void visualizeMainGraph();
@@ -123,6 +128,7 @@ private:
 
   OdometryWithCovariance last_odometry_received_;
   geometry_msgs::msg::TransformStamped map_odom_transform_msg_;
+  Eigen::Isometry3d earth_to_map_transform_;
 
   // PARAMETERS
   std::string map_frame_;
