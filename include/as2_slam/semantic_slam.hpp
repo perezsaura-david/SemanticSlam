@@ -118,6 +118,7 @@ private:
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
   std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
+  rclcpp::TimerBase::SharedPtr initial_origin_timer_;
   std::unique_ptr<OptimizerG2O> optimizer_ptr_;  // g2o graph
 
   OdometryWithCovariance last_odometry_received_;

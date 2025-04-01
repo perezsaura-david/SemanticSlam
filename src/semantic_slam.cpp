@@ -238,6 +238,26 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
   std_msgs::msg::Header header;
   header.stamp = this->get_clock()->now();
   updateMapOdomTransform(header);
+  tf_broadcaster_->sendTransform(map_odom_transform_msg_);
+  if (last_odometry_received_.odometry.translation().isZero()) {
+    RCLCPP_INFO_ONCE(
+       this->get_logger(),
+       "Setting identity transform from map to odom, waiting for odometry to update it");
+    initial_origin_timer_ = this->create_timer(
+      std::chrono::duration<double>(1.0 / 100.0),
+      [this]() {
+        std_msgs::msg::Header header;
+        header.stamp = this->get_clock()->now();
+        updateMapOdomTransform(header);
+        // Remove initial timer when receiving first odometry data
+        if (!last_odometry_received_.odometry.translation().isZero()) {
+          RCLCPP_INFO(this->get_logger(), "Initial odometry data received");
+          initial_origin_timer_.reset();
+          return;
+        }
+        return;
+      });
+  }
 }
 
 ////// CALLBACKS //////
