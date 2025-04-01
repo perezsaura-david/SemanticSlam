@@ -118,6 +118,11 @@ bool OptimizerG2O::generateOdometryInfo(
   // _odometry_info.map_ref = map_odom_tranform_ * _odometry_info.odom_ref;
   _odometry_info.map_ref = _odometry_info.odom_ref;
 
+  if (_new_odometry.covariance.isZero()) {
+    ERROR("Generated odometry covariance matrix is zero");
+    return false;
+  }
+
   // INFO(PRINT_VAR(_odometry_info.increment.translation().transpose()));
   // INFO(PRINT_VAR(_odometry_info.odom_ref.translation().transpose()));
   // INFO(PRINT_VAR(_odometry_info.map_ref.translation().transpose()));
@@ -127,6 +132,13 @@ bool OptimizerG2O::generateOdometryInfo(
 bool OptimizerG2O::handleNewOdom(
   const OdometryWithCovariance & _new_odometry)
 {
+
+  if (_new_odometry.covariance.isZero()) {
+    ERROR("Received covariance matrix is zero");
+    return false;
+    // main_graph->initGraph(_new_odometry.odometry);
+    // return true;
+  }
 
   OdometryInfo new_odometry_info;
   if (!generateOdometryInfo(
@@ -244,6 +256,10 @@ bool OptimizerG2O::checkAddingNewDetection(
   const OdometryWithCovariance & _detection_odometry,
   OdometryInfo & _detection_odometry_info)
 {
+  if (_detection_odometry.covariance.isZero()) {
+    ERROR("Received detection covariance matrix is zero");
+    return false;
+  }
   if (!temp_graph_generated_) {
     last_detection_odometry_added_ = last_odometry_added_;
   }
