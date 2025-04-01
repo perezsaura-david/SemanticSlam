@@ -405,6 +405,8 @@ void SemanticSlam::detectionsCallback(
     return;
   }
 
+  DEBUG(detection_odometry_info.covariance_matrix);
+
   std::string object_type;
   if (force_object_type_.empty()) {
     // FIXME: Create new msg with type

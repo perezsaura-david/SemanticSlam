@@ -63,34 +63,6 @@ OptimizerG2O::OptimizerG2O()
     WARN("Absolute odometry");
   }
 
-  // TODO(dps): Make this a parameter
-  // std::string object_type = "gate";
-  // std::string object_type = "aruco";
-  // std::vector<std::pair<std::string, Eigen::Vector4d>> fixed_objects_list = {
-  //   {"gate_1", Eigen::Vector4d(4.0, 1.3, 1.13, 3.14)},
-  //   {"gate_2", Eigen::Vector4d(4.0, -1.34, 1.16, 0.0)},
-  //   {"gate_3", Eigen::Vector4d(-4.0, -1.29, 1.16, 0.0)},
-  //   {"gate_4", Eigen::Vector4d(-3.97, 1.28, 1.17, 3.14)}
-  // };
-
-  // std::vector<std::pair<std::string, Eigen::Vector4d>> fixed_objects_list = {
-  //   {"gate_1", Eigen::Vector4d(5.6, 1.5, 1.375, 0.0)},
-  //   {"gate_2", Eigen::Vector4d(14.3, -1.06, 1.375, 0.0)},
-  // };
-
-  // std::vector<FixedObject> fixed_objects;
-  // for (auto object : fixed_objects_list) {
-  //   FixedObject fixed_object;
-  //   fixed_object.id = object.first;
-  //   fixed_object.type = object_type;
-  //   Eigen::Vector3d object_position = object.second.head(3);
-  //   double yaw = object.second(3);
-  //   // Convert yaw to quaternion
-  //   Eigen::Quaterniond orientation(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
-  //   fixed_object.isometry = convertToIsometry3d(object_position, orientation);
-  //   fixed_objects.emplace_back(fixed_object);
-  // }
-
   main_graph->initGraph();
   map_odom_tranform_ = Eigen::Isometry3d::Identity();
   last_odometry_added_.odometry = Eigen::Isometry3d::Identity();
@@ -118,10 +90,11 @@ bool OptimizerG2O::generateOdometryInfo(
   // _odometry_info.map_ref = map_odom_tranform_ * _odometry_info.odom_ref;
   _odometry_info.map_ref = _odometry_info.odom_ref;
 
-  if (_new_odometry.covariance.isZero()) {
+  if (_odometry_info.covariance_matrix.isZero()) {
     ERROR("Generated odometry covariance matrix is zero");
     return false;
   }
+
 
   // INFO(PRINT_VAR(_odometry_info.increment.translation().transpose()));
   // INFO(PRINT_VAR(_odometry_info.odom_ref.translation().transpose()));
@@ -151,21 +124,13 @@ bool OptimizerG2O::handleNewOdom(
   if (!checkAddingConditions(new_odometry_info, main_graph_odometry_distance_threshold_)) {
     return false;
   }
-  // INFO("New odometry distance is enough: " << new_odometry_info.increment.translation().norm());
   last_odometry_added_.odometry = new_odometry_info.odom_ref;
   last_odometry_added_.covariance = _new_odometry.covariance;
 
-  // if (_new_odometry.covariance.isZero()) {
-  //   ERROR("Covariance matrix is zero");
-  //   main_graph->initGraph(_new_odometry.odometry);
-  //   return true;
-  // }
+  DEBUG(new_odometry_info.covariance_matrix);
 
   // FLAG("ADDING NEW ODOMETRY TO MAIN GRAPH");
-  // DEBUG(PRINT_VAR(new_odometry_info.odom_ref.translation().transpose()));
-  // DEBUG(PRINT_VAR(new_odometry_info.increment.translation().transpose()));
   if (std::isnan(new_odometry_info.odom_ref.translation().x())) {
-    // DEBUG(PRINT_VAR(_new_odometry.odometry.translation().transpose()));
     ERROR("Odometry is NaN");
     return false;
   }
@@ -185,8 +150,8 @@ bool OptimizerG2O::handleNewOdom(
         Eigen::MatrixXd cov_matrix = temp_graph->computeNodeCovariance(aruco_node);
         if (cov_matrix.size() == 0) {
           WARN("Matrix is empty! Using default matrix");
-          continue;
           // cov_matrix = main_graph_object_covariance;
+          continue;
         }
 
         object_detection = new ArucoDetection(
@@ -201,7 +166,6 @@ bool OptimizerG2O::handleNewOdom(
           // cov_matrix = main_graph_object_covariance;
           continue;
         }
-        // INFO(PRINT_VAR(cov_matrix));
 
         object_detection = new GateDetection(
           object.first,
@@ -216,7 +180,6 @@ bool OptimizerG2O::handleNewOdom(
       main_graph->addNewObjectDetection(object_detection);
     }
 
-    // FLAG("RESET TEMP GRAPH");
     auto sharing = temp_graph.use_count();
     if (sharing > 1) {
       DEBUG("Temp graph Shared: " << sharing);
@@ -244,7 +207,6 @@ bool OptimizerG2O::checkAddingConditions(
   // FIXME(dps): get rotation distance
   double translation_distance_from_last_node = _odometry.increment.translation().norm();
   if (translation_distance_from_last_node < _distance_threshold) {
-    // WARN("New odometry distance is not enough: " << translation_distance_from_last_node);
     if (init_main_graph_) {
       init_main_graph_ = false;
       return true;
@@ -266,7 +228,6 @@ bool OptimizerG2O::checkAddingNewDetection(
     last_detection_odometry_added_ = last_odometry_added_;
   }
 
-  // OdometryInfo detection_odometry_info;
   generateOdometryInfo(
     _detection_odometry, last_detection_odometry_added_,
     _detection_odometry_info);
@@ -277,14 +238,8 @@ bool OptimizerG2O::checkAddingNewDetection(
     // main_graph_object_covariance = _object->getCovarianceMatrix();  // FIXME(dps): remove this
   } else {
     if (!checkAddingConditions(_detection_odometry_info, tmep_graph_odometry_distance_threshold_)) {
-      // INFO(
-      //   "New odometry distance is not enough: " <<
-      //     detection_odometry_info.increment.translation().norm());
       return false;
     }
-    // FLAG(
-    //   "New odometry distance is enough: " <<
-    //     detection_odometry_info.increment.translation().norm());
     temp_graph->addNewKeyframe(
       _detection_odometry_info.map_ref, _detection_odometry_info.increment,
       _detection_odometry_info.covariance_matrix);
