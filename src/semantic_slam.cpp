@@ -101,6 +101,33 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
   WARN("temp_graph_odometry_orientation_threshold not implemented yet");
   WARN("odometry_is_relative not implemented yet");
 
+  double earth_to_map_x = 0.0;
+  double earth_to_map_y = 0.0;
+  double earth_to_map_z = 0.0;
+  double earth_to_map_yaw = 0.0;
+
+  if (this->has_parameter("earth_to_map.x")) {
+    this->get_parameter("earth_to_map.x", earth_to_map_x);
+  }
+  if (this->has_parameter("earth_to_map.y")) {
+    this->get_parameter("earth_to_map.y", earth_to_map_y);
+  }
+  if (this->has_parameter("earth_to_map.z")) {
+    this->get_parameter("earth_to_map.z", earth_to_map_z);
+  }
+  if (this->has_parameter("earth_to_map.yaw")) {
+    this->get_parameter("earth_to_map.yaw", earth_to_map_yaw);
+  }
+  RCLCPP_INFO(
+    this->get_logger(), "Earth to map set to %f, %f, %f, %f", earth_to_map_x, earth_to_map_y,
+    earth_to_map_z, earth_to_map_yaw);
+
+  Eigen::Vector3d e2m_translation =
+    Eigen::Vector3d(earth_to_map_x, earth_to_map_y, earth_to_map_z);
+  double yaw = earth_to_map_yaw;
+  Eigen::Quaterniond e2m_rotation(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
+  Eigen::Isometry3d e2m_isometry = convertToIsometry3d(e2m_translation, e2m_rotation);
+
   if (this->has_parameter("force_object_type")) {
     force_object_type_ = this->get_parameter("force_object_type").as_string();
     WARN("Forcing object type to: " + force_object_type_);
@@ -192,7 +219,8 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
       Eigen::Vector3d(data.second[0], data.second[1], data.second[2]);
     double yaw = data.second[3];
     Eigen::Quaterniond orientation(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
-    fixed_object.isometry = convertToIsometry3d(object_position, orientation);
+    Eigen::Isometry3d earth_object_isometry = convertToIsometry3d(object_position, orientation);
+    fixed_object.isometry = e2m_isometry.inverse() * earth_object_isometry;
     optimizer_params.fixed_objects.emplace_back(fixed_object);
   }
 
@@ -280,7 +308,7 @@ void SemanticSlam::processOdometryReceived(
 {
   if (_odom_pose.translation().isZero()) {return;}
 
-  DEBUG_START_TIMER
+  // DEBUG_START_TIMER
   OdometryWithCovariance odometry_received_;
   odometry_received_.odometry = _odom_pose;
   odometry_received_.covariance = _odom_covariance;
@@ -301,7 +329,7 @@ void SemanticSlam::processOdometryReceived(
     visualizeMainGraph();
     visualizeCleanTempGraph();
     updateMapOdomTransform(_header);
-    DEBUG_LOG_DURATION
+    // DEBUG_LOG_DURATION
   }
 
   map_odom_transform_msg_.header.stamp = _header.stamp;

@@ -112,8 +112,8 @@ bool OptimizerG2O::generateOdometryInfo(
     // ABSOLUTE ODOMETRY
     _odometry_info.odom_ref = _new_odometry.odometry;
     _odometry_info.increment = _last_odometry_added.odometry.inverse() * _odometry_info.odom_ref;
-    // _odometry_info.covariance_matrix = _new_odometry.covariance;
-    _odometry_info.covariance_matrix = _new_odometry.covariance - _last_odometry_added.covariance;
+    _odometry_info.covariance_matrix = _new_odometry.covariance;
+    // _odometry_info.covariance_matrix = _new_odometry.covariance - _last_odometry_added.covariance;
   }
   // _odometry_info.map_ref = map_odom_tranform_ * _odometry_info.odom_ref;
   _odometry_info.map_ref = _odometry_info.odom_ref;
@@ -165,7 +165,7 @@ bool OptimizerG2O::handleNewOdom(
   // DEBUG(PRINT_VAR(new_odometry_info.odom_ref.translation().transpose()));
   // DEBUG(PRINT_VAR(new_odometry_info.increment.translation().transpose()));
   if (std::isnan(new_odometry_info.odom_ref.translation().x())) {
-    DEBUG(PRINT_VAR(_new_odometry.odometry.translation().transpose()));
+    // DEBUG(PRINT_VAR(_new_odometry.odometry.translation().transpose()));
     ERROR("Odometry is NaN");
     return false;
   }
@@ -185,7 +185,8 @@ bool OptimizerG2O::handleNewOdom(
         Eigen::MatrixXd cov_matrix = temp_graph->computeNodeCovariance(aruco_node);
         if (cov_matrix.size() == 0) {
           WARN("Matrix is empty! Using default matrix");
-          cov_matrix = main_graph_object_covariance;
+          continue;
+          // cov_matrix = main_graph_object_covariance;
         }
 
         object_detection = new ArucoDetection(
@@ -197,7 +198,8 @@ bool OptimizerG2O::handleNewOdom(
         Eigen::MatrixXd cov_matrix = temp_graph->computeNodeCovariance(gate_node);
         if (cov_matrix.size() == 0) {
           WARN("Matrix is empty! Using default matrix");
-          cov_matrix = main_graph_object_covariance;
+          // cov_matrix = main_graph_object_covariance;
+          continue;
         }
         // INFO(PRINT_VAR(cov_matrix));
 
@@ -272,7 +274,7 @@ bool OptimizerG2O::checkAddingNewDetection(
   if (!temp_graph_generated_) {
     temp_graph->initGraph(_detection_odometry_info.map_ref);
     temp_graph_generated_ = true;
-    main_graph_object_covariance = _object->getCovarianceMatrix();  // FIXME(dps): remove this
+    // main_graph_object_covariance = _object->getCovarianceMatrix();  // FIXME(dps): remove this
   } else {
     if (!checkAddingConditions(_detection_odometry_info, tmep_graph_odometry_distance_threshold_)) {
       // INFO(

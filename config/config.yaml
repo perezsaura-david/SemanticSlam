@@ -18,6 +18,11 @@
     temp_graph_odometry_orientation_threshold: 1.0
     odometry_is_relative: False
     generate_odom_map_transform: True
+    earth_to_map:
+      x: 0.0 # Set manually x offset of the map frame from the earth frame
+      y: 0.0 # Set manually y offset of the map frame from the earth frame
+      z: 0.0 # Set manually z offset of the map frame from the earth frame
+      yaw: 0.0 # Set manually yaw offset of the map frame from the earth frame (radians)
     # fixed_objects:
     #   gate_1:
     #     type: "aruco"
