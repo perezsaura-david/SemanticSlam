@@ -126,7 +126,7 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
     Eigen::Vector3d(earth_to_map_x, earth_to_map_y, earth_to_map_z);
   double yaw = earth_to_map_yaw;
   Eigen::Quaterniond e2m_rotation(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
-  Eigen::Isometry3d e2m_isometry = convertToIsometry3d(e2m_translation, e2m_rotation);
+  earth_to_map_transform_ = convertToIsometry3d(e2m_translation, e2m_rotation);
 
   if (this->has_parameter("force_object_type")) {
     force_object_type_ = this->get_parameter("force_object_type").as_string();
@@ -139,90 +139,7 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
 // List all parameters that start with "fixed_poses"
   auto result = this->list_parameters({"fixed_objects"}, 3);
 
-// If empty, warn and return
-  if (result.names.empty()) {
-    RCLCPP_WARN(
-      this->get_logger(), "No fixed_objects parameters found. "
-      "Please set the fixed_objects parameters.");
-    return;
-  }
-
-  // Iterate through all parameters found
-  for (const auto & param_name : result.names) {
-    // Extract gate name by removing "fixed_objects." prefix
-    std::string fixed_object_prefix = "fixed_objects.";
-    if (param_name.find(fixed_object_prefix) != 0) {
-      continue; // Safety check
-    }
-
-    // Extract gate ID and check if it's for type or pose
-    std::string fixed_object_id = param_name.substr(fixed_object_prefix.length());
-
-    size_t dot_pos = fixed_object_id.rfind('.');
-    if (dot_pos == std::string::npos) {
-      continue; // Ignore invalid parameters
-    }
-
-    std::string object_id = fixed_object_id.substr(0, dot_pos);
-    std::string suffix = fixed_object_id.substr(dot_pos + 1);
-
-    // Ensure an entry exists for this object
-    if (fixed_objects.find(object_id) == fixed_objects.end()) {
-      fixed_objects[object_id] = {"", {}}; // Initialize with empty values
-    }
-
-    if (suffix == "type") {
-      std::string object_type;
-      if (!this->get_parameter(param_name, object_type)) {
-        RCLCPP_WARN(this->get_logger(), "Failed to read 'type' for %s.", object_id.c_str());
-        continue;
-      }
-      fixed_objects[object_id].first = object_type; // Store object type
-    } else if (suffix == "pose") {
-      std::vector<double> pose;
-      // FIXME: Pose may be 4 (yaw only), 6 (euler angles), or 7 (quaternion)
-      if (!this->get_parameter(param_name, pose) || pose.size() != 4) {
-        RCLCPP_WARN(this->get_logger(), "Invalid or missing pose for %s.", object_id.c_str());
-        continue;
-      }
-      fixed_objects[object_id].second = pose; // Store pose
-    }
-  }
-
-  // Print parsed objects
-  RCLCPP_INFO(this->get_logger(), "Fixed objects:");
-  for (const auto &[id, data] : fixed_objects) {
-    if (data.first.empty() || data.second.empty()) {
-      RCLCPP_WARN(this->get_logger(), "Incomplete data for object %s.", id.c_str());
-      continue;
-    }
-    RCLCPP_INFO(
-      this->get_logger(),
-      "ID: %s, Type: %s, Pose: [%.2f, %.2f, %.2f, %.2f]",
-      id.c_str(), data.first.c_str(),
-      data.second[0], data.second[1], data.second[2], data.second[3]
-    );
-  }
-
-  for (const auto &[id, data] : fixed_objects) {
-    if (data.first.empty() || data.second.empty()) {
-      RCLCPP_WARN(this->get_logger(), "Incomplete data for object %s.", id.c_str());
-      continue;
-    }
-    FixedObject fixed_object;
-    fixed_object.id = id;
-    fixed_object.type = data.first;
-    if (!force_object_type_.empty()) {
-      fixed_object.type = force_object_type_;
-    }
-    Eigen::Vector3d object_position =
-      Eigen::Vector3d(data.second[0], data.second[1], data.second[2]);
-    double yaw = data.second[3];
-    Eigen::Quaterniond orientation(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
-    Eigen::Isometry3d earth_object_isometry = convertToIsometry3d(object_position, orientation);
-    fixed_object.isometry = e2m_isometry.inverse() * earth_object_isometry;
-    optimizer_params.fixed_objects.emplace_back(fixed_object);
-  }
+  parseFixedObjects(result, fixed_objects, optimizer_params);
 
   if (!odometry_topic.empty()) {
     odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
@@ -288,6 +205,95 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
   }
 }
 
+void SemanticSlam::parseFixedObjects(
+  const rcl_interfaces::msg::ListParametersResult & result,
+  std::map<std::string, std::pair<std::string, std::vector<double>>> & fixed_objects,
+  OptimizerG2OParameters & optimizer_params)
+{
+// If empty, warn and return
+  if (result.names.empty()) {
+    RCLCPP_WARN(
+      this->get_logger(), "No fixed_objects parameters found. "
+      "Please set the fixed_objects parameters.");
+    return;
+  }
+
+  // Iterate through all parameters found
+  for (const auto & param_name : result.names) {
+    // Extract gate name by removing "fixed_objects." prefix
+    std::string fixed_object_prefix = "fixed_objects.";
+    if (param_name.find(fixed_object_prefix) != 0) {
+      continue; // Safety check
+    }
+
+    // Extract gate ID and check if it's for type or pose
+    std::string fixed_object_id = param_name.substr(fixed_object_prefix.length());
+
+    size_t dot_pos = fixed_object_id.rfind('.');
+    if (dot_pos == std::string::npos) {
+      continue; // Ignore invalid parameters
+    }
+
+    std::string object_id = fixed_object_id.substr(0, dot_pos);
+    std::string suffix = fixed_object_id.substr(dot_pos + 1);
+
+    // Ensure an entry exists for this object
+    if (fixed_objects.find(object_id) == fixed_objects.end()) {
+      fixed_objects[object_id] = {"", {}}; // Initialize with empty values
+    }
+
+    if (suffix == "type") {
+      std::string object_type;
+      if (!this->get_parameter(param_name, object_type)) {
+        RCLCPP_WARN(this->get_logger(), "Failed to read 'type' for %s.", object_id.c_str());
+        continue;
+      }
+      fixed_objects[object_id].first = object_type; // Store object type
+    } else if (suffix == "pose") {
+      std::vector<double> pose;
+      // FIXME: Pose may be 4 (yaw only), 6 (euler angles), or 7 (quaternion)
+      if (!this->get_parameter(param_name, pose) || pose.size() != 4) {
+        RCLCPP_WARN(this->get_logger(), "Invalid or missing pose for %s.", object_id.c_str());
+        continue;
+      }
+      fixed_objects[object_id].second = pose; // Store pose
+    }
+  }
+
+  RCLCPP_INFO(this->get_logger(), "Fixed objects:");
+  for (const auto &[id, data] : fixed_objects) {
+    if (data.first.empty() || data.second.empty()) {
+      RCLCPP_WARN(this->get_logger(), "Incomplete data for object %s.", id.c_str());
+      continue;
+    }
+    RCLCPP_INFO(
+      this->get_logger(),
+      "ID: %s, Type: %s, Pose: [%.2f, %.2f, %.2f, %.2f]",
+      id.c_str(), data.first.c_str(),
+      data.second[0], data.second[1], data.second[2], data.second[3]
+    );
+  }
+
+  for (const auto &[id, data] : fixed_objects) {
+    if (data.first.empty() || data.second.empty()) {
+      RCLCPP_WARN(this->get_logger(), "Incomplete data for object %s.", id.c_str());
+      continue;
+    }
+    FixedObject fixed_object;
+    fixed_object.id = id;
+    fixed_object.type = data.first;
+    if (!force_object_type_.empty()) {
+      fixed_object.type = force_object_type_;
+    }
+    Eigen::Vector3d object_position =
+      Eigen::Vector3d(data.second[0], data.second[1], data.second[2]);
+    double yaw = data.second[3];
+    Eigen::Quaterniond orientation(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
+    Eigen::Isometry3d earth_object_isometry = convertToIsometry3d(object_position, orientation);
+    fixed_object.isometry = earth_to_map_transform_.inverse() * earth_object_isometry;
+    optimizer_params.fixed_objects.emplace_back(fixed_object);
+  }
+}
 ////// CALLBACKS //////
 
 void SemanticSlam::poseStampedCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
