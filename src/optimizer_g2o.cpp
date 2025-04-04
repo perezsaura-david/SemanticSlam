@@ -92,14 +92,10 @@ bool OptimizerG2O::generateOdometryInfo(
   // _odometry_info.map_ref = _odometry_info.odom_ref;
 
   if (_odometry_info.covariance_matrix.isZero()) {
-    ERROR("Generated odometry covariance matrix is zero");
+    WARN("Generated odometry covariance matrix is zero");
     return false;
   }
 
-
-  // INFO(PRINT_VAR(_odometry_info.increment.translation().transpose()));
-  // INFO(PRINT_VAR(_odometry_info.odom_ref.translation().transpose()));
-  // INFO(PRINT_VAR(_odometry_info.map_ref.translation().transpose()));
   return true;
 }
 
@@ -115,10 +111,6 @@ bool OptimizerG2O::handleNewOdom(
   }
 
   OdometryInfo new_odometry_info;
-  // DEBUG(PRINT_VAR(_new_odometry.odometry.translation()));
-  // DEBUG(PRINT_VAR(_new_odometry.covariance));
-  // DEBUG(PRINT_VAR(last_odometry_added_.odometry.translation()));
-  // DEBUG(PRINT_VAR(last_odometry_added_.covariance));
   if (!generateOdometryInfo(
       _new_odometry, last_odometry_added_,
       new_odometry_info))
@@ -289,8 +281,8 @@ void OptimizerG2O::setParameters(const OptimizerG2OParameters & _params)
   odometry_is_relative_ = _params.odometry_is_relative;
   generate_odom_map_transform_ = _params.generate_odom_map_transform;
   fixed_objects_ = _params.fixed_objects;
-  earth_map_transform_ = initial_earth_to_map_transform_;
   initial_earth_to_map_transform_ = _params.earth_to_map_transform;
+  earth_map_transform_ = initial_earth_to_map_transform_;
 
   Eigen::MatrixXd earth_to_map_covariance_ = Eigen::MatrixXd::Identity(6, 6) * 0.0001;
   earth_to_map_covariance_(5, 5) = 10;
@@ -324,9 +316,9 @@ void OptimizerG2O::updateOdomMapTransform()
 
   // Eigen::Isometry3d new_map_odom_tranform = initial_earth_to_map_transform_.inverse() * getOptimizedPose() * last_odometry_added_.odometry.inverse();
   Eigen::Isometry3d new_map_odom_tranform = earth_map_transform_.inverse() * getOptimizedPose() * last_odometry_added_.odometry.inverse();
-  Eigen::Isometry3d map_odom_diff = new_map_odom_tranform.inverse() * map_odom_tranform_;
+  // Eigen::Isometry3d map_odom_diff = new_map_odom_tranform.inverse() * map_odom_tranform_;
   // if (map_odom_diff.translation().norm() > map_odom_security_threshold_) {
-  //   ERROR("Map-Odom transform difference is too big: " << map_odom_diff.translation().norm());
+  //   WARN("Map-Odom transform difference is too big: " << map_odom_diff.translation().norm());
   //   return;
   // }
   map_odom_tranform_ = new_map_odom_tranform;

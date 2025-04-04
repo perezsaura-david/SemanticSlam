@@ -139,32 +139,6 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
   optimizer_ptr_ = std::make_unique<OptimizerG2O>();
   optimizer_ptr_->setParameters(getOptimizerParameters());
 
-  std_msgs::msg::Header header;
-  header.stamp = this->get_clock()->now();
-  updateMapOdomTransform(header);
-  updateEarthMapTransform(header);
-  tf_broadcaster_->sendTransform(map_odom_transform_msg_);
-  if (last_odometry_received_.odometry.translation().isZero()) {
-    RCLCPP_INFO_ONCE(
-       this->get_logger(),
-       "Setting identity transform from map to odom, waiting for odometry to update it");
-    initial_origin_timer_ = this->create_timer(
-      std::chrono::duration<double>(1.0 / 100.0),
-      [this]() {
-        std_msgs::msg::Header header;
-        header.stamp = this->get_clock()->now();
-        updateMapOdomTransform(header);
-        updateEarthMapTransform(header);
-        // Remove initial timer when receiving first odometry data
-        if (!last_odometry_received_.odometry.translation().isZero()) {
-          RCLCPP_INFO(this->get_logger(), "Initial odometry data received");
-          initial_origin_timer_.reset();
-          return;
-        }
-        return;
-      });
-  }
-
   // Callback group
   tf_callback_group_ = this->create_callback_group(
     rclcpp::CallbackGroupType::MutuallyExclusive);
@@ -172,9 +146,13 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
   tf_publish_timer_ = this->create_timer(
     std::chrono::duration<double>(1.0 / 100.0),
     [this]() {
-      map_odom_transform_msg_.header.stamp = this->now();
+      std_msgs::msg::Header header;
+      header.stamp = this->now();
+      updateMapOdomTransform(header);
+      updateEarthMapTransform(header);
+      // map_odom_transform_msg_.header.stamp = this->now();
       tf_broadcaster_->sendTransform(map_odom_transform_msg_);
-      earth_map_transform_msg_.header.stamp = this->now();
+      // earth_map_transform_msg_.header.stamp = this->now();
       tf_broadcaster_->sendTransform(earth_map_transform_msg_);
     },
     tf_callback_group_);
@@ -184,9 +162,6 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
 
 void SemanticSlam::poseStampedCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
 {
-  // WARN(msg->pose.position.x);
-  // WARN(msg->pose.position.y);
-  // WARN(msg->pose.position.z);
   Eigen::Isometry3d pose = convertToIsometry3d(msg->pose);
   Eigen::MatrixXd covariance = Eigen::MatrixXd::Identity(6, 6) * 0.001;
 
@@ -203,12 +178,6 @@ void SemanticSlam::processOdometryReceived(
     OdometryWithCovariance odometry_received_;
     odometry_received_.odometry = _odom_pose;
     odometry_received_.covariance = _odom_covariance;
-    // odometry_received_.covariance(3, 3) *= 10e2;
-    // odometry_received_.covariance(4, 4) *= 10e2;
-    // odometry_received_.covariance(5, 5) *= 10e2;
-    // odometry_received_.covariance *= 10e3;
-
-    // DEBUG(PRINT_VAR(odometry_received_.covariance));
 
     // TODO(dps): Define how to use this
     // msg->header.stamp;
@@ -224,11 +193,6 @@ void SemanticSlam::processOdometryReceived(
       // DEBUG_LOG_DURATION
     }
   }
-
-  // map_odom_transform_msg_.header.stamp = _header.stamp;
-  // tf_broadcaster_->sendTransform(map_odom_transform_msg_);
-  // earth_map_transform_msg_.header.stamp = _header.stamp;
-  // tf_broadcaster_->sendTransform(earth_map_transform_msg_);
 
   // Get map_odom_transform from optimizer and publish corrected localization
   Eigen::Isometry3d map_odom_transform = optimizer_ptr_->getMapOdomTransform();
@@ -261,7 +225,8 @@ void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
   }
   // Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> odom_covariance(
   //   msg->pose.covariance.data());
-  Eigen::Matrix<double, 6, 6> odom_covariance = Eigen::MatrixXd::Identity(6, 6) * 0.00001;
+  Eigen::Matrix<double, 6, 6> odom_covariance = Eigen::MatrixXd::Identity(6, 6) * 10e-5;
+  // odom_covariance(0,0) = 10e-3;
   processOdometryReceived(odom_isometry, odom_covariance, msg->header);
 }
 
@@ -272,9 +237,27 @@ void SemanticSlam::detectionsCallback(
     WARN("Detection received before odometry info");
     return;
   }
+
+  // Lookup transform for baselink in odometry frame at timestamp
+  OdometryWithCovariance detection_odometry;
+  auto target_ts = msg->poses.front().pose.header.stamp;
+  std::chrono::nanoseconds tf_timeout =
+    std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(1.0));
+  try {
+    // DEBUG("Get Odom Pose at detection time: " << odom_frame_ << " to " << robot_frame_);
+    auto detection_odometry_transform =
+      tf_buffer_->lookupTransform(odom_frame_, robot_frame_, target_ts, tf_timeout);
+    detection_odometry.odometry = convertToIsometry3d(detection_odometry_transform.transform);
+    detection_odometry.covariance = last_odometry_received_.covariance;
+  } catch (const tf2::TransformException & ex) {
+    RCLCPP_INFO(
+      this->get_logger(), "Could not transform %s to %s: %s", odom_frame_.c_str(),
+      robot_frame_.c_str(), ex.what());
+  }
+
   // DEBUG_START_TIMER
   OdometryInfo detection_odometry_info;
-  if (!optimizer_ptr_->checkAddingNewDetection(last_odometry_received_, detection_odometry_info)) {
+  if (!optimizer_ptr_->checkAddingNewDetection(detection_odometry, detection_odometry_info)) {
     return;
   }
 
@@ -348,7 +331,7 @@ void SemanticSlam::processArucoMsg(
   // TODO(dps): Define how to use this
   // msg->pose.header.stamp;
   Eigen::Isometry3d aruco_pose = generatePoseFromMsg(_msg);
-  Eigen::Matrix<double, 6, 6> aruco_covariance = Eigen::MatrixXd::Identity(6, 6) * 0.1;
+  Eigen::Matrix<double, 6, 6> aruco_covariance = Eigen::MatrixXd::Identity(6, 6) * 0.01;
   // aruco_covariance(0) = 0.001;
   // aruco_covariance(7) = 0.001;
   // aruco_covariance(14) = 0.001;
@@ -399,7 +382,7 @@ Eigen::Isometry3d SemanticSlam::generatePoseFromMsg(
   if (ref_frame != robot_frame_) {
     geometry_msgs::msg::TransformStamped ref_frame_transform;
     try {
-      WARN("Transform detection from " << ref_frame << " to " << robot_frame_);
+      // INFO("Transform detection from " << ref_frame << " to " << robot_frame_);
       ref_frame_transform =
         tf_buffer_->lookupTransform(robot_frame_, ref_frame, target_ts, tf_timeout);
       geometry_msgs::msg::PoseStamped transformed_pose;
