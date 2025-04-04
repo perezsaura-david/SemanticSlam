@@ -59,8 +59,10 @@ struct OptimizerG2OParameters
   double main_graph_odometry_orientation_threshold;  // radians
   double temp_graph_odometry_distance_threshold;     // meters
   double temp_graph_odometry_orientation_threshold;  // radians
+  double map_odom_security_threshold;                // meters
   bool odometry_is_relative;
   bool generate_odom_map_transform;
+  Eigen::Isometry3d earth_to_map_transform;
   std::vector<FixedObject> fixed_objects;
 };
 
@@ -73,7 +75,9 @@ public:
   std::shared_ptr<GraphG2O> temp_graph;
   void setParameters(const OptimizerG2OParameters & _params);
   Eigen::Isometry3d getOptimizedPose();
+  Eigen::Isometry3d getOptimizedMapPose();
   Eigen::Isometry3d getMapOdomTransform();
+  Eigen::Isometry3d getMapTransform();
 
   bool handleNewOdom(
     const OdometryWithCovariance & _new_odometry);
@@ -101,6 +105,8 @@ private:
   OdometryWithCovariance last_odometry_added_;
   OdometryWithCovariance last_detection_odometry_added_;
   Eigen::Isometry3d map_odom_tranform_;
+  Eigen::Isometry3d earth_map_transform_;
+  Eigen::Isometry3d initial_earth_to_map_transform_;
   Eigen::MatrixXd main_graph_object_covariance;
 
   // PARAMETERS
@@ -108,6 +114,7 @@ private:
   double main_graph_odometry_orientation_threshold_ = 1.0;  // radians
   double tmep_graph_odometry_distance_threshold_ = 0.1;     // meters
   double temp_graph_odometry_orientation_threshold_ = 0.1;  // radians
+  double map_odom_security_threshold_ = 2.0;                // meters
   bool odometry_is_relative_ = false;
   bool generate_odom_map_transform_ = false;
   std::vector<FixedObject> fixed_objects_;

@@ -51,9 +51,11 @@ void debugGraphVertices(std::shared_ptr<GraphG2O> _graph)
     auto node_se3 = dynamic_cast<g2o::VertexSE3 *>(p.second);
     if (node_se3) {
       auto T = node_se3->estimate().translation().transpose();
+      auto R = node_se3->estimate().rotation();
       INFO("NODE SE3 [" << id << "]: " << T);
+      INFO("NODE SE3 [" << id << "]: " << R);
       _graph->graph_->computeMarginals(spinv, node_se3);
-      debugComputeCovariance(spinv, id);
+      // debugComputeCovariance(spinv, id);
       continue;
     }
     auto node_point3d = dynamic_cast<g2o::VertexPointXYZ *>(p.second);
@@ -61,7 +63,7 @@ void debugGraphVertices(std::shared_ptr<GraphG2O> _graph)
       auto T = node_point3d->estimate().transpose();
       INFO("NODE POINT3D [" << id << "]: " << T);
       _graph->graph_->computeMarginals(spinv, node_point3d);
-      debugComputeCovariance(spinv, id);
+      // debugComputeCovariance(spinv, id);
       continue;
     }
     WARN("Node [" << id << "] type is not recognized");

@@ -78,6 +78,8 @@ public:
   std::vector<GraphEdge *> getEdges();
   std::unordered_map<std::string, GraphNode *> getObjectNodes();
   OdomNode * getLastOdomNode();
+  OdomNode * getMapNode();
+  void setMapNode(OdomNode * _map_node);
 
   void addNode(GraphNode & _node);
   void addEdge(GraphEdge & _edge);
@@ -101,6 +103,7 @@ private:
   int n_edges_ = 0;
   std::string name_;
   OdomNode * last_odom_node_;
+  OdomNode * map_node_;
   std::vector<GraphNode *> graph_nodes_;
   std::vector<GraphEdge *> graph_edges_;
 };

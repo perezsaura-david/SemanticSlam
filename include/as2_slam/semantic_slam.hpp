@@ -82,6 +82,8 @@ private:
     const rcl_interfaces::msg::ListParametersResult & _result,
     std::map<std::string, std::pair<std::string, std::vector<double>>> & fixed_objects,
     OptimizerG2OParameters & optimizer_params);
+  OptimizerG2OParameters getOptimizerParameters();
+  Eigen::Isometry3d getOdometryFromOpenVins(const nav_msgs::msg::Odometry & _msg); 
 
   void visualizeCleanTempGraph();
   void visualizeMainGraph();
@@ -91,6 +93,7 @@ private:
   visualization_msgs::msg::MarkerArray generateVizEdgesMsg(std::shared_ptr<GraphG2O> & _graph);
   visualization_msgs::msg::MarkerArray generateCleanMarkersMsg();
   void updateMapOdomTransform(const std_msgs::msg::Header & _header);
+  void updateEarthMapTransform(const std_msgs::msg::Header & _header);
 
   void processOdometryReceived(
     const Eigen::Isometry3d _odom_pose,
@@ -128,9 +131,12 @@ private:
 
   OdometryWithCovariance last_odometry_received_;
   geometry_msgs::msg::TransformStamped map_odom_transform_msg_;
+  geometry_msgs::msg::TransformStamped earth_map_transform_msg_;
   Eigen::Isometry3d earth_to_map_transform_;
 
   // PARAMETERS
+  std::string earth_frame_ = "earth";
+  std::string estimated_map_frame_;
   std::string map_frame_;
   std::string odom_frame_;
   std::string robot_frame_;

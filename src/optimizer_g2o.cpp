@@ -87,8 +87,9 @@ bool OptimizerG2O::generateOdometryInfo(
     _odometry_info.covariance_matrix = _new_odometry.covariance;
     // _odometry_info.covariance_matrix = _new_odometry.covariance - _last_odometry_added.covariance;
   }
-  // _odometry_info.map_ref = map_odom_tranform_ * _odometry_info.odom_ref;
-  _odometry_info.map_ref = _odometry_info.odom_ref;
+  _odometry_info.map_ref = initial_earth_to_map_transform_ * _odometry_info.odom_ref;
+  // _odometry_info.map_ref = earth_map_transform_ * _odometry_info.odom_ref;
+  // _odometry_info.map_ref = _odometry_info.odom_ref;
 
   if (_odometry_info.covariance_matrix.isZero()) {
     ERROR("Generated odometry covariance matrix is zero");
@@ -114,6 +115,10 @@ bool OptimizerG2O::handleNewOdom(
   }
 
   OdometryInfo new_odometry_info;
+  // DEBUG(PRINT_VAR(_new_odometry.odometry.translation()));
+  // DEBUG(PRINT_VAR(_new_odometry.covariance));
+  // DEBUG(PRINT_VAR(last_odometry_added_.odometry.translation()));
+  // DEBUG(PRINT_VAR(last_odometry_added_.covariance));
   if (!generateOdometryInfo(
       _new_odometry, last_odometry_added_,
       new_odometry_info))
@@ -127,11 +132,11 @@ bool OptimizerG2O::handleNewOdom(
   last_odometry_added_.odometry = new_odometry_info.odom_ref;
   last_odometry_added_.covariance = _new_odometry.covariance;
 
-  DEBUG(new_odometry_info.covariance_matrix);
+  // DEBUG(new_odometry_info.covariance_matrix);
 
   // FLAG("ADDING NEW ODOMETRY TO MAIN GRAPH");
   if (std::isnan(new_odometry_info.odom_ref.translation().x())) {
-    ERROR("Odometry is NaN");
+    ERROR("Odometry generated is NaN");
     return false;
   }
 
@@ -220,20 +225,27 @@ bool OptimizerG2O::checkAddingNewDetection(
   const OdometryWithCovariance & _detection_odometry,
   OdometryInfo & _detection_odometry_info)
 {
-  if (_detection_odometry.covariance.isZero()) {
-    ERROR("Received detection covariance matrix is zero");
-    return false;
-  }
+  // if (_detection_odometry.covariance.isZero()) {
+  //   ERROR("Received detection odom covariance matrix is zero");
+  //   return false;
+  // }
   if (!temp_graph_generated_) {
     last_detection_odometry_added_ = last_odometry_added_;
   }
+  // DEBUG(PRINT_VAR(_detection_odometry.odometry.translation()));
+  // DEBUG(PRINT_VAR(_detection_odometry.covariance));
+  // DEBUG(PRINT_VAR(last_odometry_added_.odometry.translation()));
+  // DEBUG(PRINT_VAR(last_odometry_added_.covariance));
 
-  generateOdometryInfo(
+  if (!generateOdometryInfo(
     _detection_odometry, last_detection_odometry_added_,
-    _detection_odometry_info);
+    _detection_odometry_info)) {
+    return false;
+  }
 
   if (!temp_graph_generated_) {
-    temp_graph->initGraph(_detection_odometry_info.map_ref);
+    // temp_graph->initGraph(_detection_odometry_info.map_ref);
+    temp_graph->initGraph(main_graph->getLastOdomNode()->getPose());
     temp_graph_generated_ = true;
     // main_graph_object_covariance = _object->getCovarianceMatrix();  // FIXME(dps): remove this
   } else {
@@ -273,15 +285,51 @@ void OptimizerG2O::setParameters(const OptimizerG2OParameters & _params)
   main_graph_odometry_orientation_threshold_ = _params.main_graph_odometry_orientation_threshold;
   tmep_graph_odometry_distance_threshold_ = _params.temp_graph_odometry_distance_threshold;
   temp_graph_odometry_orientation_threshold_ = _params.temp_graph_odometry_orientation_threshold;
+  map_odom_security_threshold_ = _params.map_odom_security_threshold;
   odometry_is_relative_ = _params.odometry_is_relative;
   generate_odom_map_transform_ = _params.generate_odom_map_transform;
   fixed_objects_ = _params.fixed_objects;
+  earth_map_transform_ = initial_earth_to_map_transform_;
+  initial_earth_to_map_transform_ = _params.earth_to_map_transform;
+
+  Eigen::MatrixXd earth_to_map_covariance_ = Eigen::MatrixXd::Identity(6, 6) * 0.0001;
+  earth_to_map_covariance_(5, 5) = 10;
+  // odometry_received_.covariance(4, 4) *= 10e4;
+  // odometry_received_.covariance(3, 3) *= 10e4;
+  //
+  main_graph->addNewKeyframe(initial_earth_to_map_transform_, 
+    initial_earth_to_map_transform_, 
+    earth_to_map_covariance_);
+
+  main_graph->setMapNode(main_graph->getLastOdomNode());
+
+  // last_odometry_added_.odometry = earth_to_map_transform_;
+  // last_odometry_added_.covariance = Eigen::MatrixXd::Zero(6, 6);
+  //
   main_graph->setFixedObjects(fixed_objects_);
 }
 
 void OptimizerG2O::updateOdomMapTransform()
 {
-  map_odom_tranform_ = getOptimizedPose() * last_odometry_added_.odometry.inverse();
+  // Eigen::Isometry3d new_map_odom_tranform = getOptimizedPose() * last_odometry_added_.odometry.inverse() * earth_to_map_transform_.inverse();
+  // return;
+  //
+  earth_map_transform_ = getOptimizedMapPose();
+  // DEBUG(earth_map_transform_.translation());
+  // Eigen::Vector3d euler_angles = earth_map_transform_.rotation().eulerAngles(0, 1, 2);
+  // DEBUG(euler_angles);
+
+  // auto actual_map_to_odom_transform = earth_to_map_transform_.inverse() * getOptimizedPose();
+
+
+  // Eigen::Isometry3d new_map_odom_tranform = initial_earth_to_map_transform_.inverse() * getOptimizedPose() * last_odometry_added_.odometry.inverse();
+  Eigen::Isometry3d new_map_odom_tranform = earth_map_transform_.inverse() * getOptimizedPose() * last_odometry_added_.odometry.inverse();
+  Eigen::Isometry3d map_odom_diff = new_map_odom_tranform.inverse() * map_odom_tranform_;
+  // if (map_odom_diff.translation().norm() > map_odom_security_threshold_) {
+  //   ERROR("Map-Odom transform difference is too big: " << map_odom_diff.translation().norm());
+  //   return;
+  // }
+  map_odom_tranform_ = new_map_odom_tranform;
 }
 
 Eigen::Isometry3d OptimizerG2O::getOptimizedPose()
@@ -289,7 +337,17 @@ Eigen::Isometry3d OptimizerG2O::getOptimizedPose()
   return main_graph->getLastOdomNode()->getPose();
 }
 
+Eigen::Isometry3d OptimizerG2O::getOptimizedMapPose()
+{
+  return main_graph->getMapNode()->getPose();
+}
+
 Eigen::Isometry3d OptimizerG2O::getMapOdomTransform()
 {
   return map_odom_tranform_;
+}
+
+Eigen::Isometry3d OptimizerG2O::getMapTransform()
+{
+  return earth_map_transform_;
 }

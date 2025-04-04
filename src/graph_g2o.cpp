@@ -99,7 +99,12 @@ std::vector<GraphNode *> GraphG2O::getNodes() {return graph_nodes_;}
 std::vector<GraphEdge *> GraphG2O::getEdges() {return graph_edges_;}
 std::unordered_map<std::string, GraphNode *> GraphG2O::getObjectNodes() {return obj_id2node_;}
 OdomNode * GraphG2O::getLastOdomNode() {return last_odom_node_;}
+OdomNode * GraphG2O::getMapNode() {return map_node_;}
 
+void GraphG2O::setMapNode(OdomNode * _map_node)
+{
+  map_node_ = _map_node;
+}
 
 void GraphG2O::setFixedObjects(const std::vector<FixedObject> & _fixed_objects)
 {
@@ -157,7 +162,9 @@ void GraphG2O::optimizeGraph()
   // std::cout << "iterations: " << iterations << " / " << num_iterations << std::endl;
   // std::cout << "chi2: (before)" << chi2 << " -> (after)" << graph->chi2() << std::endl;
   if (std::isnan(graph_->chi2())) {
-    throw std::invalid_argument("GRAPH RETURNED A NAN...STOPPING THE EXPERIMENT");
+    // FIXME(dps): If temp graph, reset
+    // throw std::invalid_argument("GRAPH RETURNED A NAN...STOPPING THE EXPERIMENT");
+    ERROR_GRAPH("GRAPH RETURNED A NAN...STOPPING THE EXPERIMENT");
   }
   DEBUG_LOG_DURATION_GRAPH
 }
@@ -211,9 +218,9 @@ void GraphG2O::addNewObjectDetection(
     addNode(*object_node);
 
     obj_id2node_[_object_detection->getId()] = object_node;
-    // FLAG_GRAPH("Added new object ID: " << _object_detection->getId());
+    FLAG_GRAPH("Added new object ID: " << _object_detection->getId());
   } else {
-    // INFO_GRAPH("Already detected object ID: " << _object_detection->getId());
+    INFO_GRAPH("Already detected object ID: " << _object_detection->getId());
   }
 
   GraphEdge * object_edge = _object_detection->createEdge(last_odom_node_, object_node);
