@@ -164,6 +164,20 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
         return;
       });
   }
+
+  // Callback group
+  tf_callback_group_ = this->create_callback_group(
+    rclcpp::CallbackGroupType::MutuallyExclusive);
+  // Create a timer to publish the transform at a fixed rate
+  tf_publish_timer_ = this->create_timer(
+    std::chrono::duration<double>(1.0 / 100.0),
+    [this]() {
+      map_odom_transform_msg_.header.stamp = this->now();
+      tf_broadcaster_->sendTransform(map_odom_transform_msg_);
+      earth_map_transform_msg_.header.stamp = this->now();
+      tf_broadcaster_->sendTransform(earth_map_transform_msg_);
+    },
+    tf_callback_group_);
 }
 
 ////// CALLBACKS //////
@@ -211,10 +225,10 @@ void SemanticSlam::processOdometryReceived(
     }
   }
 
-  map_odom_transform_msg_.header.stamp = _header.stamp;
-  tf_broadcaster_->sendTransform(map_odom_transform_msg_);
-  earth_map_transform_msg_.header.stamp = _header.stamp;
-  tf_broadcaster_->sendTransform(earth_map_transform_msg_);
+  // map_odom_transform_msg_.header.stamp = _header.stamp;
+  // tf_broadcaster_->sendTransform(map_odom_transform_msg_);
+  // earth_map_transform_msg_.header.stamp = _header.stamp;
+  // tf_broadcaster_->sendTransform(earth_map_transform_msg_);
 
   // Get map_odom_transform from optimizer and publish corrected localization
   Eigen::Isometry3d map_odom_transform = optimizer_ptr_->getMapOdomTransform();

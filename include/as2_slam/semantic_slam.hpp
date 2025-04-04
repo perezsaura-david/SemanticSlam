@@ -143,6 +143,16 @@ private:
   bool odometry_is_relative_ = false;
   std::string force_object_type_;
 
+  // TF publishers
+  rclcpp::CallbackGroup::SharedPtr tf_callback_group_;
+  rclcpp::TimerBase::SharedPtr tf_publish_timer_;
+
+public:
+  rclcpp::CallbackGroup::SharedPtr get_callback_group()
+  {
+    return tf_callback_group_;
+  }
+
   // std::filesystem::path plugin_name_;
   // std::shared_ptr<pluginlib::ClassLoader<as2_state_estimator_plugin_base::StateEstimatorBase>>
   //     loader_;
