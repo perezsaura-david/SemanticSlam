@@ -225,8 +225,8 @@ bool OptimizerG2O::checkAddingNewDetection(
   }
 
   if (!temp_graph_generated_) {
-    // temp_graph->initGraph(_detection_odometry_info.map_ref);
-    temp_graph->initGraph(main_graph->getLastOdomNode()->getPose());
+    temp_graph->initGraph(_detection_odometry_info.map_ref);
+    // temp_graph->initGraph(main_graph->getLastOdomNode()->getPose());
     temp_graph_generated_ = true;
     // main_graph_object_covariance = _object->getCovarianceMatrix();  // FIXME(dps): remove this
   } else {
