@@ -43,6 +43,7 @@
 #include <geometry_msgs/msg/detail/pose_stamped__struct.hpp>
 #include <geometry_msgs/msg/detail/pose_with_covariance_stamped__struct.hpp>
 #include <memory>
+#include <rclcpp/subscription_options.hpp>
 #include <string>
 #include <vector>
 
@@ -111,9 +112,14 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
     RCLCPP_ERROR(this->get_logger(), "No odometry or pose topic provided");
   }
 
+  detections_callback_group_= this->create_callback_group(
+    rclcpp::CallbackGroupType::MutuallyExclusive);
+  rclcpp::SubscriptionOptions det_options;
+  det_options.callback_group = detections_callback_group_;
   detections_sub_ = this->create_subscription<as2_msgs::msg::PoseStampedWithIDArray>(
     detections_topic, sensor_qos,
-    std::bind(&SemanticSlam::detectionsCallback, this, std::placeholders::_1));
+    std::bind(&SemanticSlam::detectionsCallback, this, std::placeholders::_1), 
+    det_options);
   // aruco_pose_sub_ = this->create_subscription<as2_msgs::msg::PoseStampedWithID>(
   //   aruco_pose_topic, sensor_qos,
   //   std::bind(&SemanticSlam::arucoPoseCallback, this, std::placeholders::_1));
@@ -155,6 +161,7 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
       tf_broadcaster_->sendTransform(earth_map_transform_msg_);
     },
     tf_callback_group_);
+
 }
 
 ////// CALLBACKS //////
@@ -222,9 +229,9 @@ void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
   } else {
     odom_isometry = convertToIsometry3d(msg->pose.pose);
   }
-  // Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> odom_covariance(
-  //   msg->pose.covariance.data());
-  Eigen::Matrix<double, 6, 6> odom_covariance = Eigen::MatrixXd::Identity(6, 6) * 10e-5;
+  Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> odom_covariance(
+    msg->pose.covariance.data());
+  // Eigen::Matrix<double, 6, 6> odom_covariance = Eigen::MatrixXd::Identity(6, 6) * 10e-5;
   // odom_covariance(0,0) = 10e-3;
   processOdometryReceived(odom_isometry, odom_covariance, msg->header);
 }

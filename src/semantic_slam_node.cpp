@@ -50,7 +50,10 @@ int main(int argc, char ** argv)
   auto node = std::make_shared<SemanticSlam>(modified_options);
   rclcpp::executors::MultiThreadedExecutor executor;
   executor.add_callback_group(
-    node->get_callback_group(),
+    node->get_tf_callback_group(),
+    node->get_node_base_interface());
+  executor.add_callback_group(
+    node->get_detections_callback_group(),
     node->get_node_base_interface());
   // rclcpp::spin(node);
   executor.add_node(node);

@@ -147,12 +147,18 @@ private:
 
   // TF publishers
   rclcpp::CallbackGroup::SharedPtr tf_callback_group_;
+  rclcpp::CallbackGroup::SharedPtr detections_callback_group_;
   rclcpp::TimerBase::SharedPtr tf_publish_timer_;
 
 public:
-  rclcpp::CallbackGroup::SharedPtr get_callback_group()
+  rclcpp::CallbackGroup::SharedPtr get_tf_callback_group()
   {
     return tf_callback_group_;
+  }
+
+  rclcpp::CallbackGroup::SharedPtr get_detections_callback_group()
+  {
+    return detections_callback_group_;
   }
 
   // std::filesystem::path plugin_name_;
