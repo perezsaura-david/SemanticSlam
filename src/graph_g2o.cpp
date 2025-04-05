@@ -142,7 +142,7 @@ void GraphG2O::initGraph(const Eigen::Isometry3d & _initial_pose)
 
 void GraphG2O::optimizeGraph()
 {
-  DEBUG_START_TIMER
+  // DEBUG_START_TIMER
   const int num_iterations = 100;
   // INFO_GRAPH("--- optimizing graph ---");
   INFO_GRAPH("nodes: " << graph_->vertices().size() << "   edges: " << graph_->edges().size());
@@ -153,7 +153,7 @@ void GraphG2O::optimizeGraph()
 
   double chi2 = graph_->chi2();
   if (std::isnan(chi2)) {
-    ERROR_GRAPH("GRAPH RETURNED A NAN WAITING AFTER OPTIMIZATION");
+    ERROR_GRAPH("GRAPH RETURNED A NAN BEFORE OPTIMIZATION");
   }
   // std::cout << "Start optimization" << std::endl;
   graph_->optimize(num_iterations);
@@ -164,9 +164,9 @@ void GraphG2O::optimizeGraph()
   if (std::isnan(graph_->chi2())) {
     // FIXME(dps): If temp graph, reset
     // throw std::invalid_argument("GRAPH RETURNED A NAN...STOPPING THE EXPERIMENT");
-    ERROR_GRAPH("GRAPH RETURNED A NAN...STOPPING THE EXPERIMENT");
+    ERROR_GRAPH("GRAPH RETURNED A NAN AFTER OPTIMIZATION");
   }
-  DEBUG_LOG_DURATION_GRAPH
+  // DEBUG_LOG_DURATION_GRAPH
 }
 
 void GraphG2O::addNode(GraphNode & _node)

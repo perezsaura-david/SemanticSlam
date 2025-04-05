@@ -76,14 +76,14 @@ bool OptimizerG2O::generateOdometryInfo(
   OdometryInfo & _odometry_info)
 {
   if (_new_odometry.covariance.isZero()) {
-    ERROR("Received covariance matrix is zero");
+    WARN("Received covariance matrix is zero");
     return false;
   }
 
   if (odometry_is_relative_) {
     // TODO(dps): RELATIVE ODOMETRY
     // relative_pose = odom_pose;
-    ERROR("RELATIVE ODOMETRY NOT IMPLEMENTED");
+    WARN("RELATIVE ODOMETRY NOT IMPLEMENTED");
     return false;
   } else {
     // ABSOLUTE ODOMETRY
@@ -125,7 +125,7 @@ bool OptimizerG2O::handleNewOdom(
 
   // FLAG("ADDING NEW ODOMETRY TO MAIN GRAPH");
   if (std::isnan(new_odometry_info.odom_ref.translation().x())) {
-    ERROR("Odometry generated is NaN");
+    WARN("Odometry generated is NaN");
     return false;
   }
 
