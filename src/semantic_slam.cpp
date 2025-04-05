@@ -511,6 +511,7 @@ OptimizerG2OParameters SemanticSlam::getOptimizerParameters() {
   WARN("main_graph_odometry_orientation_threshold not implemented yet");
   WARN("temp_graph_odometry_orientation_threshold not implemented yet");
   WARN("odometry_is_relative not implemented yet");
+  WARN("map_odom_security_threshold not implemented yet");
 
   double earth_to_map_x = 0.0;
   double earth_to_map_y = 0.0;
