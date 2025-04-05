@@ -243,6 +243,11 @@ void SemanticSlam::detectionsCallback(
     WARN("Detection received before odometry info");
     return;
   }
+  // Safely check array size before access
+  if (msg->poses.empty()) {
+      RCLCPP_WARN(this->get_logger(), "Received empty PoseStampedWithIDArray");
+      return;
+  }
 
   // Lookup transform for baselink in odometry frame at timestamp
   OdometryWithCovariance detection_odometry;
