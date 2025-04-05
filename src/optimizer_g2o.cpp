@@ -75,6 +75,11 @@ bool OptimizerG2O::generateOdometryInfo(
   const OdometryWithCovariance & _last_odometry_added,
   OdometryInfo & _odometry_info)
 {
+  if (_new_odometry.covariance.isZero()) {
+    ERROR("Received covariance matrix is zero");
+    return false;
+  }
+
   if (odometry_is_relative_) {
     // TODO(dps): RELATIVE ODOMETRY
     // relative_pose = odom_pose;
@@ -102,14 +107,6 @@ bool OptimizerG2O::generateOdometryInfo(
 bool OptimizerG2O::handleNewOdom(
   const OdometryWithCovariance & _new_odometry)
 {
-
-  if (_new_odometry.covariance.isZero()) {
-    ERROR("Received covariance matrix is zero");
-    return false;
-    // main_graph->initGraph(_new_odometry.odometry);
-    // return true;
-  }
-
   OdometryInfo new_odometry_info;
   if (!generateOdometryInfo(
       _new_odometry, last_odometry_added_,
@@ -217,17 +214,9 @@ bool OptimizerG2O::checkAddingNewDetection(
   const OdometryWithCovariance & _detection_odometry,
   OdometryInfo & _detection_odometry_info)
 {
-  // if (_detection_odometry.covariance.isZero()) {
-  //   ERROR("Received detection odom covariance matrix is zero");
-  //   return false;
-  // }
   if (!temp_graph_generated_) {
     last_detection_odometry_added_ = last_odometry_added_;
   }
-  // DEBUG(PRINT_VAR(_detection_odometry.odometry.translation()));
-  // DEBUG(PRINT_VAR(_detection_odometry.covariance));
-  // DEBUG(PRINT_VAR(last_odometry_added_.odometry.translation()));
-  // DEBUG(PRINT_VAR(last_odometry_added_.covariance));
 
   if (!generateOdometryInfo(
     _detection_odometry, last_detection_odometry_added_,
@@ -285,7 +274,7 @@ void OptimizerG2O::setParameters(const OptimizerG2OParameters & _params)
   earth_map_transform_ = initial_earth_to_map_transform_;
 
   Eigen::MatrixXd earth_to_map_covariance_ = Eigen::MatrixXd::Identity(6, 6) * 0.0001;
-  earth_to_map_covariance_(5, 5) = 10;
+  earth_to_map_covariance_(5, 5) = 0.1;
   // odometry_received_.covariance(4, 4) *= 10e4;
   // odometry_received_.covariance(3, 3) *= 10e4;
   //

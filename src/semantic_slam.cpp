@@ -142,6 +142,7 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
   // Callback group
   tf_callback_group_ = this->create_callback_group(
     rclcpp::CallbackGroupType::MutuallyExclusive);
+  if (!generate_odom_map_transform_) {return;}
   // Create a timer to publish the transform at a fixed rate
   tf_publish_timer_ = this->create_timer(
     std::chrono::duration<double>(1.0 / 100.0),
@@ -150,9 +151,7 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
       header.stamp = this->now();
       updateMapOdomTransform(header);
       updateEarthMapTransform(header);
-      // map_odom_transform_msg_.header.stamp = this->now();
       tf_broadcaster_->sendTransform(map_odom_transform_msg_);
-      // earth_map_transform_msg_.header.stamp = this->now();
       tf_broadcaster_->sendTransform(earth_map_transform_msg_);
     },
     tf_callback_group_);
@@ -495,6 +494,8 @@ OptimizerG2OParameters SemanticSlam::getOptimizerParameters() {
   optimizer_params.odometry_is_relative = this->get_parameter("odometry_is_relative").as_bool();
   optimizer_params.generate_odom_map_transform =
     this->get_parameter("generate_odom_map_transform").as_bool();
+  generate_odom_map_transform_ = optimizer_params.generate_odom_map_transform;
+
   WARN("main_graph_odometry_orientation_threshold not implemented yet");
   WARN("temp_graph_odometry_orientation_threshold not implemented yet");
   WARN("odometry_is_relative not implemented yet");
@@ -587,12 +588,6 @@ void SemanticSlam::parseFixedObjects(
       RCLCPP_WARN(this->get_logger(), "Incomplete data for fixed object %s.", id.c_str());
       continue;
     }
-    // RCLCPP_INFO(
-    //   this->get_logger(),
-    //   "ID: %s, Type: %s, Pose: [%.2f, %.2f, %.2f, %.2f]",
-    //   id.c_str(), data.first.c_str(),
-    //   data.second[0], data.second[1], data.second[2], data.second[3]
-    // );
   }
 
   for (const auto &[id, data] : fixed_objects) {

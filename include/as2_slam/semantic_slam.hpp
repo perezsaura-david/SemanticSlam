@@ -140,8 +140,10 @@ private:
   std::string map_frame_;
   std::string odom_frame_;
   std::string robot_frame_;
-  bool odometry_is_relative_ = false;
   std::string force_object_type_;
+  bool odometry_is_relative_ = false;
+  bool generate_odom_map_transform_ = false;
+
 
   // TF publishers
   rclcpp::CallbackGroup::SharedPtr tf_callback_group_;

@@ -220,7 +220,7 @@ void GraphG2O::addNewObjectDetection(
     obj_id2node_[_object_detection->getId()] = object_node;
     FLAG_GRAPH("Added new object ID: " << _object_detection->getId());
   } else {
-    INFO_GRAPH("Already detected object ID: " << _object_detection->getId());
+    // INFO_GRAPH("Already detected object ID: " << _object_detection->getId());
   }
 
   GraphEdge * object_edge = _object_detection->createEdge(last_odom_node_, object_node);
