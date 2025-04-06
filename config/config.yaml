@@ -17,6 +17,7 @@
     temp_graph_odometry_distance_threshold: 0.2
     temp_graph_odometry_orientation_threshold: 1.0
     main_graph_odometry_distance_threshold_if_detections: 0.5
+    visualize_graphs: False
     odometry_is_relative: False
     generate_odom_map_transform: False
     map_odom_security_threshold: 999.9

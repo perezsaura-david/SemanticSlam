@@ -90,6 +90,8 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
     PARAM("Forcing object type to: " + force_object_type_);
   }
 
+  visualize_graphs_ = this->get_parameter("visualize_graphs").as_bool();
+
 
 // VISUALIZATION
   std::string viz_main_markers_topic = this->get_parameter("viz_main_markers_topic").as_string();
@@ -132,10 +134,12 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
     corrected_localization_topic, reliable_qos);
   corrected_path_pub_ = this->create_publisher<nav_msgs::msg::Path>(
     corrected_path_topic, reliable_qos);
-  viz_main_markers_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
-    viz_main_markers_topic, reliable_qos);
-  viz_temp_markers_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
-    viz_temp_markers_topic, reliable_qos);
+  if (visualize_graphs_) {
+    viz_main_markers_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
+      viz_main_markers_topic, reliable_qos);
+    viz_temp_markers_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
+      viz_temp_markers_topic, reliable_qos);
+  } 
 
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -192,8 +196,10 @@ void SemanticSlam::processOdometryReceived(
     last_odometry_received_ = odometry_received_;
 
     if (new_node_added) {
-      visualizeMainGraph();
-      visualizeCleanTempGraph();
+      if (visualize_graphs_) {
+        visualizeMainGraph();
+        visualizeCleanTempGraph();
+      }
       updateMapOdomTransform(_header);
       updateEarthMapTransform(_header);
       // DEBUG_LOG_DURATION
@@ -213,12 +219,14 @@ void SemanticSlam::processOdometryReceived(
   corrected_localization_msg.header.frame_id = earth_frame_;
   corrected_localization_pub_->publish(corrected_localization_msg);
 
-  // Publish corrected Path
-  static nav_msgs::msg::Path corrected_path_msg;
-  corrected_path_msg.header.stamp = _header.stamp;
-  corrected_path_msg.header.frame_id = earth_frame_;
-  corrected_path_msg.poses.emplace_back(pose_stamped_msg);
-  corrected_path_pub_->publish(corrected_path_msg);
+  if (visualize_graphs_) {
+    // Publish corrected Path
+    static nav_msgs::msg::Path corrected_path_msg;
+    corrected_path_msg.header.stamp = _header.stamp;
+    corrected_path_msg.header.frame_id = earth_frame_;
+    corrected_path_msg.poses.emplace_back(pose_stamped_msg);
+    corrected_path_pub_->publish(corrected_path_msg);
+  }
 }
 
 void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
@@ -331,7 +339,9 @@ void SemanticSlam::processGateMsg(
       detections_are_absolute));
 
   optimizer_ptr_->handleNewObjectDetection(gate, _detection_odometry_info);
-  visualizeTempGraph();
+  if (visualize_graphs_) {
+    visualizeTempGraph();
+  }
 }
 
 void SemanticSlam::processArucoMsg(
@@ -355,7 +365,9 @@ void SemanticSlam::processArucoMsg(
       detections_are_absolute));
 
   optimizer_ptr_->handleNewObjectDetection(aruco, _detection_odometry_info);
-  visualizeTempGraph();
+  if (visualize_graphs_) {
+    visualizeTempGraph();
+  }
 }
 
 void SemanticSlam::updateMapOdomTransform(const std_msgs::msg::Header & _header)
@@ -432,7 +444,8 @@ void SemanticSlam::visualizeTempGraph()
     optimizer_ptr_->temp_graph->getName(); 
   } catch (...) {
     WARN("Can't access Temp graph methods");
-    return;}
+    return;
+  }
   visualization_msgs::msg::MarkerArray viz_odom_nodes_msg =
     generateVizNodesMsg(optimizer_ptr_->temp_graph);
   viz_temp_markers_pub_->publish(viz_odom_nodes_msg);
