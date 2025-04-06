@@ -46,6 +46,7 @@
 #define YELLOW_COLOR "\033[1;33m"
 #define MAGENTA_COLOR "\033[0;35m"
 #define CYAN_COLOR "\033[0;36m"
+#define BLUE_COLOR "\033[0;34m"
 
 #define ERROR(x) \
   std::cerr << RED_COLOR << "[ERROR] " << x << std::endl \
@@ -61,6 +62,8 @@
             << "\t  at line " << __LINE__ << " in function " << __func__ << RESET_COLOR \
             << std::endl
 #define INFO(x) // std::cout << x << std::endl;
+#define PARAM(x) \
+  std::cout << BLUE_COLOR << "[PARAMS] " << x << RESET_COLOR << std::endl
 
 #define NAME(x) "[" << x << "] "
 

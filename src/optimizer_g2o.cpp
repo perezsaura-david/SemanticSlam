@@ -58,9 +58,9 @@ OptimizerG2O::OptimizerG2O()
   temp_graph = std::make_shared<GraphG2O>("Temp Graph");
 
   if (odometry_is_relative_) {
-    WARN("Relative odometry");
+    PARAM("Relative odometry");
   } else {
-    WARN("Absolute odometry");
+    PARAM("Absolute odometry");
   }
 
   main_graph->initGraph();
@@ -83,7 +83,7 @@ bool OptimizerG2O::generateOdometryInfo(
   if (odometry_is_relative_) {
     // TODO(dps): RELATIVE ODOMETRY
     // relative_pose = odom_pose;
-    WARN("RELATIVE ODOMETRY NOT IMPLEMENTED");
+    ERROR("RELATIVE ODOMETRY NOT IMPLEMENTED");
     return false;
   } else {
     // ABSOLUTE ODOMETRY
@@ -178,7 +178,7 @@ bool OptimizerG2O::handleNewOdom(
         ERROR("Prepare detection ERROR");
         continue;
       }
-      // FIXME(dps): get object edge covariance
+      // FIXME(dps): check valid object detection AND Get object edge covariance
       main_graph->addNewObjectDetection(object_detection);
     }
 
@@ -282,15 +282,15 @@ void OptimizerG2O::setParameters(const OptimizerG2OParameters & _params)
   initial_earth_to_map_transform_ = _params.earth_to_map_transform;
   earth_map_transform_ = initial_earth_to_map_transform_;
 
-  WARN(PRINT_VAR(main_graph_odometry_distance_threshold_));
-  WARN(PRINT_VAR(temp_graph_odometry_distance_threshold_));
-  WARN(PRINT_VAR(main_graph_odometry_distance_threshold_if_detections_));
+  PARAM(PRINT_VAR(main_graph_odometry_distance_threshold_));
+  PARAM(PRINT_VAR(temp_graph_odometry_distance_threshold_));
+  PARAM(PRINT_VAR(main_graph_odometry_distance_threshold_if_detections_));
 
   Eigen::MatrixXd earth_to_map_covariance_ = Eigen::MatrixXd::Identity(6, 6) * 0.0001;
   earth_to_map_covariance_(5, 5) = 0.1;
   // odometry_received_.covariance(4, 4) *= 10e4;
   // odometry_received_.covariance(3, 3) *= 10e4;
-  //
+
   main_graph->addNewKeyframe(initial_earth_to_map_transform_, 
     initial_earth_to_map_transform_, 
     earth_to_map_covariance_);

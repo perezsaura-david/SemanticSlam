@@ -87,7 +87,7 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
 
   if (this->has_parameter("force_object_type")) {
     force_object_type_ = this->get_parameter("force_object_type").as_string();
-    WARN("Forcing object type to: " + force_object_type_);
+    PARAM("Forcing object type to: " + force_object_type_);
   }
 
 
@@ -101,13 +101,13 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
     odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
       odometry_topic, sensor_qos,
       std::bind(&SemanticSlam::odomCallback, this, std::placeholders::_1));
-    WARN("Subscribed to Odometry topic: " << odometry_topic);
+    PARAM("Subscribed to Odometry topic: " << odometry_topic);
    
   } else if (!pose_topic.empty()) {
     pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
       pose_topic, sensor_qos,
       std::bind(&SemanticSlam::poseStampedCallback, this, std::placeholders::_1));
-    WARN("Subscribed to PoseStamped topic: " << pose_topic);
+    PARAM("Subscribed to PoseStamped topic: " << pose_topic);
   } else {
     RCLCPP_ERROR(this->get_logger(), "No odometry or pose topic provided");
   }
@@ -283,7 +283,7 @@ void SemanticSlam::detectionsCallback(
     object_type = force_object_type_;
   }
   if (object_type.empty()) {
-    WARN("No object type provided. Force object type or use 'type' field in msg");
+    ERROR("No object type provided. Force object type or use 'type' field in msg");
     return;
   }
   for (auto & detection : msg->poses) {
@@ -424,6 +424,15 @@ void SemanticSlam::visualizeMainGraph()
 
 void SemanticSlam::visualizeTempGraph()
 {
+  if (!optimizer_ptr_->temp_graph) {
+    WARN("Temp graph not created yet");
+    return;
+  }
+  try { 
+    optimizer_ptr_->temp_graph->getName(); 
+  } catch (...) {
+    WARN("Can't access Temp graph methods");
+    return;}
   visualization_msgs::msg::MarkerArray viz_odom_nodes_msg =
     generateVizNodesMsg(optimizer_ptr_->temp_graph);
   viz_temp_markers_pub_->publish(viz_odom_nodes_msg);
@@ -510,11 +519,6 @@ OptimizerG2OParameters SemanticSlam::getOptimizerParameters() {
     this->get_parameter("generate_odom_map_transform").as_bool();
   generate_odom_map_transform_ = optimizer_params.generate_odom_map_transform;
 
-  WARN("main_graph_odometry_orientation_threshold not implemented yet");
-  WARN("temp_graph_odometry_orientation_threshold not implemented yet");
-  WARN("odometry_is_relative not implemented yet");
-  WARN("map_odom_security_threshold not implemented yet");
-
   double earth_to_map_x = 0.0;
   double earth_to_map_y = 0.0;
   double earth_to_map_z = 0.0;
@@ -532,9 +536,10 @@ OptimizerG2OParameters SemanticSlam::getOptimizerParameters() {
   if (this->has_parameter("earth_to_map.yaw")) {
     this->get_parameter("earth_to_map.yaw", earth_to_map_yaw);
   }
-  RCLCPP_INFO(
-    this->get_logger(), "Earth to map set to %f, %f, %f, %f", earth_to_map_x, earth_to_map_y,
-    earth_to_map_z, earth_to_map_yaw);
+  PARAM(
+    "Earth to map transform: " + std::to_string(earth_to_map_x) + ", " +
+    std::to_string(earth_to_map_y) + ", " + std::to_string(earth_to_map_z) + ", yaw=" +
+    std::to_string(earth_to_map_yaw));
 
   Eigen::Vector3d e2m_translation =
     Eigen::Vector3d(earth_to_map_x, earth_to_map_y, earth_to_map_z);
@@ -548,6 +553,12 @@ OptimizerG2OParameters SemanticSlam::getOptimizerParameters() {
   // List all parameters that start with "fixed_poses"
   auto result = this->list_parameters({"fixed_objects"}, 3);
   parseFixedObjects(result, fixed_objects, optimizer_params);
+
+  WARN("main_graph_odometry_orientation_threshold not implemented yet");
+  WARN("temp_graph_odometry_orientation_threshold not implemented yet");
+  WARN("odometry_is_relative not implemented yet");
+  WARN("map_odom_security_threshold not implemented yet");
+
   return optimizer_params;
 }
 
