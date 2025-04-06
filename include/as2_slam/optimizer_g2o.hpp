@@ -59,6 +59,7 @@ struct OptimizerG2OParameters
   double main_graph_odometry_orientation_threshold;  // radians
   double temp_graph_odometry_distance_threshold;     // meters
   double temp_graph_odometry_orientation_threshold;  // radians
+  double main_graph_odometry_distance_threshold_if_detections;     // meters
   double map_odom_security_threshold;                // meters
   bool odometry_is_relative;
   bool generate_odom_map_transform;
@@ -112,8 +113,9 @@ private:
   // PARAMETERS
   double main_graph_odometry_distance_threshold_ = 1.0;     // meters
   double main_graph_odometry_orientation_threshold_ = 1.0;  // radians
-  double tmep_graph_odometry_distance_threshold_ = 0.1;     // meters
+  double temp_graph_odometry_distance_threshold_ = 0.1;     // meters
   double temp_graph_odometry_orientation_threshold_ = 0.1;  // radians
+  double main_graph_odometry_distance_threshold_if_detections_ = 0.5;     // meters
   double map_odom_security_threshold_ = 2.0;                // meters
   bool odometry_is_relative_ = false;
   bool generate_odom_map_transform_ = false;

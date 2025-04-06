@@ -503,6 +503,8 @@ OptimizerG2OParameters SemanticSlam::getOptimizerParameters() {
     "temp_graph_odometry_orientation_threshold").as_double();
   optimizer_params.map_odom_security_threshold = this->get_parameter(
     "map_odom_security_threshold").as_double();
+  optimizer_params.main_graph_odometry_distance_threshold_if_detections = this->get_parameter(
+    "main_graph_odometry_distance_threshold_if_detections").as_double();
   optimizer_params.odometry_is_relative = this->get_parameter("odometry_is_relative").as_bool();
   optimizer_params.generate_odom_map_transform =
     this->get_parameter("generate_odom_map_transform").as_bool();

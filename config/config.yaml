@@ -16,9 +16,10 @@
     main_graph_odometry_orientation_threshold: 1.0
     temp_graph_odometry_distance_threshold: 0.2
     temp_graph_odometry_orientation_threshold: 1.0
+    main_graph_odometry_distance_threshold_if_detections: 0.5
     odometry_is_relative: False
-    generate_odom_map_transform: True
-    map_odom_security_threshold: 2.0
+    generate_odom_map_transform: False
+    map_odom_security_threshold: 999.9
     earth_to_map:
       x: 0.0 # Set manually x offset of the map frame from the earth frame
       y: 0.0 # Set manually y offset of the map frame from the earth frame

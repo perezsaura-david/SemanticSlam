@@ -114,10 +114,18 @@ bool OptimizerG2O::handleNewOdom(
   {
     return false;
   }
-
-  if (!checkAddingConditions(new_odometry_info, main_graph_odometry_distance_threshold_)) {
+  if (temp_graph_generated_) {
+    if (!checkAddingConditions(new_odometry_info, main_graph_odometry_distance_threshold_if_detections_)) {
+      return false;
+    }
+  } 
+  else if (!checkAddingConditions(new_odometry_info, main_graph_odometry_distance_threshold_)) {
     return false;
   }
+
+  // if (!checkAddingConditions(new_odometry_info, main_graph_odometry_distance_threshold_)) {
+  //   return false;
+  // }
   last_odometry_added_.odometry = new_odometry_info.odom_ref;
   last_odometry_added_.covariance = _new_odometry.covariance;
 
@@ -230,7 +238,7 @@ bool OptimizerG2O::checkAddingNewDetection(
     temp_graph_generated_ = true;
     // main_graph_object_covariance = _object->getCovarianceMatrix();  // FIXME(dps): remove this
   } else {
-    if (!checkAddingConditions(_detection_odometry_info, tmep_graph_odometry_distance_threshold_)) {
+    if (!checkAddingConditions(_detection_odometry_info, temp_graph_odometry_distance_threshold_)) {
       return false;
     }
     temp_graph->addNewKeyframe(
@@ -264,14 +272,19 @@ void OptimizerG2O::setParameters(const OptimizerG2OParameters & _params)
 {
   main_graph_odometry_distance_threshold_ = _params.main_graph_odometry_distance_threshold;
   main_graph_odometry_orientation_threshold_ = _params.main_graph_odometry_orientation_threshold;
-  tmep_graph_odometry_distance_threshold_ = _params.temp_graph_odometry_distance_threshold;
+  temp_graph_odometry_distance_threshold_ = _params.temp_graph_odometry_distance_threshold;
   temp_graph_odometry_orientation_threshold_ = _params.temp_graph_odometry_orientation_threshold;
+  main_graph_odometry_distance_threshold_if_detections_ = _params.main_graph_odometry_distance_threshold_if_detections;
   map_odom_security_threshold_ = _params.map_odom_security_threshold;
   odometry_is_relative_ = _params.odometry_is_relative;
   generate_odom_map_transform_ = _params.generate_odom_map_transform;
   fixed_objects_ = _params.fixed_objects;
   initial_earth_to_map_transform_ = _params.earth_to_map_transform;
   earth_map_transform_ = initial_earth_to_map_transform_;
+
+  WARN(PRINT_VAR(main_graph_odometry_distance_threshold_));
+  WARN(PRINT_VAR(temp_graph_odometry_distance_threshold_));
+  WARN(PRINT_VAR(main_graph_odometry_distance_threshold_if_detections_));
 
   Eigen::MatrixXd earth_to_map_covariance_ = Eigen::MatrixXd::Identity(6, 6) * 0.0001;
   earth_to_map_covariance_(5, 5) = 0.1;
