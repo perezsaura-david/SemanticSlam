@@ -90,7 +90,7 @@ public:
   void addNewObjectDetection(ObjectDetection * _object);
   Eigen::MatrixXd computeNodeCovariance(GraphNode * _node);
 
-  void optimizeGraph();
+  bool optimizeGraph();
   void setFixedObjects(const std::vector<FixedObject> & _fixed_objects);
   void initGraph(const Eigen::Isometry3d & _initial_pose = Eigen::Isometry3d::Identity());
   std::shared_ptr<g2o::SparseOptimizer> graph_;  // g2o graph

@@ -140,15 +140,15 @@ void GraphG2O::initGraph(const Eigen::Isometry3d & _initial_pose)
   last_odom_node_ = fixed_node;
 }
 
-void GraphG2O::optimizeGraph()
+bool GraphG2O::optimizeGraph()
 {
   if (graph_->vertices().size() == 0) {
     ERROR_GRAPH("No vertices in the optimizer! Skipping optimization.");
-    return; // or handle error gracefully
+    return false;
   }
   if (graph_->edges().size() == 0) {
     ERROR_GRAPH("No edges in the optimizer! Skipping optimization.");
-    return; // or handle error gracefully
+    return false;
   }
 
   DEBUG_START_TIMER
@@ -163,6 +163,7 @@ void GraphG2O::optimizeGraph()
   double chi2 = graph_->chi2();
   if (std::isnan(chi2)) {
     ERROR_GRAPH("GRAPH RETURNED A NAN BEFORE OPTIMIZATION");
+    // return false;
   }
   // std::cout << "Start optimization" << std::endl;
   graph_->optimize(num_iterations);
@@ -174,8 +175,10 @@ void GraphG2O::optimizeGraph()
     // FIXME(dps): If temp graph, reset
     // throw std::invalid_argument("GRAPH RETURNED A NAN...STOPPING THE EXPERIMENT");
     ERROR_GRAPH("GRAPH RETURNED A NAN AFTER OPTIMIZATION");
+    return false;
   }
   DEBUG_LOG_DURATION_GRAPH
+  return true;
 }
 
 void GraphG2O::addNode(GraphNode & _node)

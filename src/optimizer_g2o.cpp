@@ -142,49 +142,51 @@ bool OptimizerG2O::handleNewOdom(
     new_odometry_info.covariance_matrix);
 
   if (temp_graph_generated_) {
-    temp_graph->optimizeGraph();
-    // FLAG("ADD TEMP GRAPH DETECTIONS TO MAIN GRAPH");
-    for (auto object : temp_graph->getObjectNodes()) {
-      // TODO(dps): Get all the nodes related and create new edges
-      ObjectDetection * object_detection;
-      ArucoNode * aruco_node = dynamic_cast<ArucoNode *>(object.second);
-      if (aruco_node) {
-        Eigen::MatrixXd cov_matrix = temp_graph->computeNodeCovariance(aruco_node);
-        if (cov_matrix.size() == 0) {
-          WARN("Matrix is empty! Using default matrix");
-          // cov_matrix = main_graph_object_covariance;
-          continue;
+    if (temp_graph->optimizeGraph()) {
+      // FLAG("ADD TEMP GRAPH DETECTIONS TO MAIN GRAPH");
+      for (auto object : temp_graph->getObjectNodes()) {
+        // TODO(dps): Get all the nodes related and create new edges
+        ObjectDetection * object_detection;
+        ArucoNode * aruco_node = dynamic_cast<ArucoNode *>(object.second);
+        if (aruco_node) {
+          Eigen::MatrixXd cov_matrix = temp_graph->computeNodeCovariance(aruco_node);
+          if (cov_matrix.size() == 0) {
+            WARN("Matrix is empty! Using default matrix");
+            // cov_matrix = main_graph_object_covariance;
+            continue;
+          }
+
+          object_detection = new ArucoDetection(
+            object.first,
+            aruco_node->getPose(), cov_matrix, true);
+        }
+        GateNode * gate_node = dynamic_cast<GateNode *>(object.second);
+        if (gate_node) {
+          Eigen::MatrixXd cov_matrix = temp_graph->computeNodeCovariance(gate_node);
+          if (cov_matrix.size() == 0) {
+            WARN("Matrix is empty! Using default matrix");
+            // cov_matrix = main_graph_object_covariance;
+            continue;
+          }
+
+          object_detection = new GateDetection(
+            object.first,
+            gate_node->getPosition(), cov_matrix, true);
         }
 
-        object_detection = new ArucoDetection(
-          object.first,
-          aruco_node->getPose(), cov_matrix, true);
-      }
-      GateNode * gate_node = dynamic_cast<GateNode *>(object.second);
-      if (gate_node) {
-        Eigen::MatrixXd cov_matrix = temp_graph->computeNodeCovariance(gate_node);
-        if (cov_matrix.size() == 0) {
-          WARN("Matrix is empty! Using default matrix");
-          // cov_matrix = main_graph_object_covariance;
+        if (!object_detection->prepareMeasurements(new_odometry_info)) {
+          ERROR("Prepare detection ERROR");
           continue;
         }
-
-        object_detection = new GateDetection(
-          object.first,
-          gate_node->getPosition(), cov_matrix, true);
+        // FIXME(dps): check valid object detection AND Get object edge covariance
+        main_graph->addNewObjectDetection(object_detection);
       }
-
-      if (!object_detection->prepareMeasurements(new_odometry_info)) {
-        ERROR("Prepare detection ERROR");
-        continue;
+      auto sharing = temp_graph.use_count();
+      if (sharing > 1) {
+        DEBUG("Temp graph Shared: " << sharing);
       }
-      // FIXME(dps): check valid object detection AND Get object edge covariance
-      main_graph->addNewObjectDetection(object_detection);
-    }
-
-    auto sharing = temp_graph.use_count();
-    if (sharing > 1) {
-      DEBUG("Temp graph Shared: " << sharing);
+    } else {
+      ERROR("Temp graph optimization failed");
     }
     temp_graph.reset();
     temp_graph = std::make_shared<GraphG2O>("Temp Graph");
