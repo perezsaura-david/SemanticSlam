@@ -90,10 +90,14 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
     PARAM("Forcing object type to: " + force_object_type_);
   }
 
-  visualize_graphs_ = this->get_parameter("visualize_graphs").as_bool();
-
+  detection_covariance_by_distance_ = this->get_parameter("detection_covariance_by_distance").as_bool();
+  detection_covariance_factor_ = this->get_parameter("detection_covariance_factor").as_double();
+  PARAM("Detection covariance by distance: " << std::boolalpha
+    << detection_covariance_by_distance_); 
+  PARAM(PRINT_VAR(detection_covariance_factor_));
 
 // VISUALIZATION
+  visualize_graphs_ = this->get_parameter("visualize_graphs").as_bool();
   std::string viz_main_markers_topic = this->get_parameter("viz_main_markers_topic").as_string();
   std::string viz_temp_markers_topic = this->get_parameter("viz_temp_markers_topic").as_string();
 
@@ -330,7 +334,11 @@ void SemanticSlam::processGateMsg(
 {
   std::string gate_id = _msg.id;
   Eigen::Vector3d gate_position = generatePoseFromMsg(_msg).translation();
-  Eigen::Matrix<double, 3, 3> gate_covariance = Eigen::MatrixXd::Identity(3, 3) * 0.001;
+  Eigen::Matrix<double, 3, 3> gate_covariance = Eigen::MatrixXd::Identity(3, 3) * detection_covariance_factor_;
+  if (detection_covariance_by_distance_) {
+    double distance = gate_position.norm();
+    gate_covariance = Eigen::MatrixXd::Identity(3, 3) * distance * distance;
+  }
 
   bool detections_are_absolute = false;
 
@@ -352,11 +360,12 @@ void SemanticSlam::processArucoMsg(
   // TODO(dps): Define how to use this
   // msg->pose.header.stamp;
   Eigen::Isometry3d aruco_pose = generatePoseFromMsg(_msg);
-  Eigen::Matrix<double, 6, 6> aruco_covariance = Eigen::MatrixXd::Identity(6, 6) * 0.01;
-  // aruco_covariance(0) = 0.001;
-  // aruco_covariance(7) = 0.001;
-  // aruco_covariance(14) = 0.001;
-  // aruco_covariance(21) = 0.001;
+  Eigen::Matrix<double, 6, 6> aruco_covariance = Eigen::MatrixXd::Identity(6, 6) * detection_covariance_factor_;
+  if (detection_covariance_by_distance_) {
+    double distance = aruco_pose.translation().norm();
+    aruco_covariance = aruco_covariance * distance * distance;
+  }
+  WARN(aruco_covariance);
 
   bool detections_are_absolute = false;
 
