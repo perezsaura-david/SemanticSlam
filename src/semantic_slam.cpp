@@ -537,6 +537,8 @@ OptimizerG2OParameters SemanticSlam::getOptimizerParameters() {
   optimizer_params.generate_odom_map_transform =
     this->get_parameter("generate_odom_map_transform").as_bool();
   generate_odom_map_transform_ = optimizer_params.generate_odom_map_transform;
+  optimizer_params.map_odom_transform_alpha = this->get_parameter(
+    "map_odom_transform_alpha").as_double();
 
   double earth_to_map_x = 0.0;
   double earth_to_map_y = 0.0;

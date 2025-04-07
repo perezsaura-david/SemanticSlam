@@ -62,6 +62,7 @@ struct OptimizerG2OParameters
   double temp_graph_odometry_orientation_threshold;  // radians
   double main_graph_odometry_distance_threshold_if_detections;     // meters
   double map_odom_security_threshold;                // meters
+  double map_odom_transform_alpha;
   bool odometry_is_relative;
   bool generate_odom_map_transform;
   Eigen::Isometry3d earth_to_map_transform;
@@ -119,6 +120,7 @@ private:
   double temp_graph_odometry_orientation_threshold_ = 0.1;  // radians
   double main_graph_odometry_distance_threshold_if_detections_ = 0.5;     // meters
   double map_odom_security_threshold_ = 2.0;                // meters
+  double map_odom_transform_alpha_ = 0.5;
   bool odometry_is_relative_ = false;
   bool generate_odom_map_transform_ = false;
   std::vector<FixedObject> fixed_objects_;
