@@ -82,6 +82,7 @@ public:
   Eigen::Isometry3d getOptimizedMapPose();
   Eigen::Isometry3d getMapOdomTransform();
   Eigen::Isometry3d getMapTransform();
+  Eigen::Isometry3d filterTransform(Eigen::Isometry3d _last_transform, Eigen::Isometry3d _new_transform);
 
   bool handleNewOdom(
     const OdometryWithCovariance & _new_odometry);
@@ -106,6 +107,7 @@ private:
   // TODO(dps): add time_threshold_
   double translation_distance_from_last_node_ = 0.0;
   double rotation_distance_from_last_node_ = 0.0;
+  double map_odom_transform_alpha_ = 1.0;
   OdometryWithCovariance last_odometry_added_;
   OdometryWithCovariance last_detection_odometry_added_;
   Eigen::Isometry3d map_odom_tranform_;
@@ -120,7 +122,6 @@ private:
   double temp_graph_odometry_orientation_threshold_ = 0.1;  // radians
   double main_graph_odometry_distance_threshold_if_detections_ = 0.5;     // meters
   double map_odom_security_threshold_ = 2.0;                // meters
-  double map_odom_transform_alpha_ = 0.5;
   bool odometry_is_relative_ = false;
   bool generate_odom_map_transform_ = false;
   std::vector<FixedObject> fixed_objects_;

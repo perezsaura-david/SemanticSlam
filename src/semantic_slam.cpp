@@ -42,6 +42,7 @@
 #include <g2o/core/optimizable_graph.h>
 #include <geometry_msgs/msg/detail/pose_stamped__struct.hpp>
 #include <geometry_msgs/msg/detail/pose_with_covariance_stamped__struct.hpp>
+#include <geometry_msgs/msg/detail/transform_stamped__struct.hpp>
 #include <memory>
 #include <rclcpp/subscription_options.hpp>
 #include <string>
@@ -92,9 +93,13 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
 
   detection_covariance_by_distance_ = this->get_parameter("detection_covariance_by_distance").as_bool();
   detection_covariance_factor_ = this->get_parameter("detection_covariance_factor").as_double();
+  // map_odom_transform_alpha_ = this->get_parameter(
+  //   "map_odom_transform_alpha").as_double();
+
   PARAM("Detection covariance by distance: " << std::boolalpha
     << detection_covariance_by_distance_); 
   PARAM(PRINT_VAR(detection_covariance_factor_));
+  // PARAM(PRINT_VAR(map_odom_transform_alpha_));
 
 // VISUALIZATION
   visualize_graphs_ = this->get_parameter("visualize_graphs").as_bool();
@@ -153,24 +158,48 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
   optimizer_ptr_ = std::make_unique<OptimizerG2O>();
   optimizer_ptr_->setParameters(getOptimizerParameters());
 
+  std_msgs::msg::Header header;
+  header.stamp = this->now();
+  updateMapOdomTransform(header);
+  tf_broadcaster_->sendTransform(map_odom_transform_msg_);
+  updateEarthMapTransform(header);
+  tf_broadcaster_->sendTransform(earth_map_transform_msg_);
   // Callback group
   tf_callback_group_ = this->create_callback_group(
     rclcpp::CallbackGroupType::MutuallyExclusive);
-  if (!generate_odom_map_transform_) {return;}
-  // Create a timer to publish the transform at a fixed rate
-  tf_publish_timer_ = this->create_timer(
-    std::chrono::duration<double>(1.0 / 100.0),
-    [this]() {
-      std_msgs::msg::Header header;
-      header.stamp = this->now();
-      updateMapOdomTransform(header);
-      updateEarthMapTransform(header);
-      tf_broadcaster_->sendTransform(map_odom_transform_msg_);
-      tf_broadcaster_->sendTransform(earth_map_transform_msg_);
-    },
+    if (!generate_odom_map_transform_) {return;}
+    // Create a timer to publish the transform at a fixed rate
+    tf_publish_timer_ = this->create_timer(
+      std::chrono::duration<double>(1.0 / 100.0),
+      [this]() {
+        optimizer_ptr_->updateOdomMapTransform();
+        std_msgs::msg::Header header;
+        header.stamp = this->now();
+        updateMapOdomTransform(header);
+        tf_broadcaster_->sendTransform(map_odom_transform_msg_);
+        updateEarthMapTransform(header);
+        tf_broadcaster_->sendTransform(earth_map_transform_msg_);
+      },
     tf_callback_group_);
 
 }
+
+// Eigen::Isometry3d SemanticSlam::filterTransform(Eigen::Isometry3d _last_transform, Eigen::Isometry3d _new_transform) {
+//   // Interpolate translation
+//   Eigen::Vector3d old_translation = _last_transform.translation();
+//   Eigen::Vector3d new_translation = _new_transform.translation();
+//   Eigen::Vector3d filtered_translation = (1.0 - map_odom_transform_alpha_) * old_translation + map_odom_transform_alpha_ * new_translation;
+//   // Interpolate rotation
+//   Eigen::Quaterniond old_rot(_last_transform.rotation());
+//   Eigen::Quaterniond new_rot(_new_transform.rotation());
+//   Eigen::Quaterniond filtered_rot = old_rot.slerp(map_odom_transform_alpha_, new_rot);
+//   // Compose the filtered transform
+//   Eigen::Isometry3d filtered_transform = Eigen::Isometry3d::Identity();
+//   filtered_transform.linear() = filtered_rot.toRotationMatrix();
+//   filtered_transform.translation() = filtered_translation;
+
+//   return filtered_transform;
+// }
 
 ////// CALLBACKS //////
 

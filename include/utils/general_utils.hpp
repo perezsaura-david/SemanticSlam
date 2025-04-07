@@ -57,11 +57,11 @@
 
 #define FLAG(x) // std::cout << CYAN_COLOR << "[FLAG] " << x << RESET_COLOR << std::endl
 #define DEBUG(x) // std::cout << GREEN_COLOR << "[DEBUG] " << x << RESET_COLOR << std::endl
-#define DEBUG_VERBOSE(x) \
-  // std::cout << GREEN_COLOR << "[DEBUG] " << x << std::endl \
+#define DEBUG_VERBOSE(x) // \
+  std::cout << GREEN_COLOR << "[DEBUG] " << x << std::endl \
             << "\t  at line " << __LINE__ << " in function " << __func__ << RESET_COLOR \
             << std::endl
-#define INFO(x) // std::cout << x << std::endl;
+#define INFO(x) // std::cout << x << std::endl
 #define PARAM(x) \
   std::cout << BLUE_COLOR << "[PARAMS] " << x << RESET_COLOR << std::endl
 
