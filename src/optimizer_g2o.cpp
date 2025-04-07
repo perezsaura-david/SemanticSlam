@@ -196,15 +196,13 @@ bool OptimizerG2O::handleNewOdom(
       ERROR("Temp graph optimization failed");
     }
   }
-  graph_mutex_.unlock();
 
   if (temp_graph_generated_) {
-    graph_mutex_.lock();
     temp_graph.reset();
     temp_graph = std::make_shared<GraphG2O>("Temp Graph");
-    graph_mutex_.unlock();
     temp_graph_generated_ = false;
   }
+  graph_mutex_.unlock();
 
   // TODO(dps): Choose when to optimize: either every time a new keyframe is added, or every certain
   // period of time
