@@ -146,10 +146,10 @@ bool OptimizerG2O::handleNewOdom(
       // FLAG("ADD TEMP GRAPH DETECTIONS TO MAIN GRAPH");
       for (auto object : temp_graph->getObjectNodes()) {
         // TODO(dps): Get all the nodes related and create new edges
-        ObjectDetection * object_detection;
-        ArucoNode * aruco_node = dynamic_cast<ArucoNode *>(object.second);
-        if (aruco_node) {
-          try {
+        try {
+          ObjectDetection * object_detection;
+          ArucoNode * aruco_node = dynamic_cast<ArucoNode *>(object.second);
+          if (aruco_node) {
             Eigen::MatrixXd cov_matrix = temp_graph->computeNodeCovariance(aruco_node);
             if (cov_matrix.size() == 0) {
               WARN("Matrix is empty! Using default matrix");
@@ -159,27 +159,19 @@ bool OptimizerG2O::handleNewOdom(
             object_detection = new ArucoDetection(
               object.first,
               aruco_node->getPose(), cov_matrix, true);
-            } catch (const std::exception & e) {
-              ERROR("Exception: " << e.what());
-              continue;
-            }
-          }
-        GateNode * gate_node = dynamic_cast<GateNode *>(object.second);
-        if (gate_node) {
-          try {
-            Eigen::MatrixXd cov_matrix = temp_graph->computeNodeCovariance(gate_node);
-            if (cov_matrix.size() == 0) {
-              WARN("Matrix is empty! Using default matrix");
-              // cov_matrix = main_graph_object_covariance;
-              continue;
-            }
-            object_detection = new GateDetection(
-              object.first,
-              gate_node->getPosition(), cov_matrix, true);
-          } catch (const std::exception & e) {
-            ERROR("Exception: " << e.what());
-            continue;
-          }
+          } 
+
+          GateNode * gate_node = dynamic_cast<GateNode *>(object.second);
+          if (gate_node) {
+              Eigen::MatrixXd cov_matrix = temp_graph->computeNodeCovariance(gate_node);
+              if (cov_matrix.size() == 0) {
+                WARN("Matrix is empty! Using default matrix");
+                // cov_matrix = main_graph_object_covariance;
+                continue;
+              }
+              object_detection = new GateDetection(
+                object.first,
+                gate_node->getPosition(), cov_matrix, true);
         }
 
         if (!object_detection->prepareMeasurements(new_odometry_info)) {
@@ -188,6 +180,11 @@ bool OptimizerG2O::handleNewOdom(
         }
         // FIXME(dps): check valid object detection AND Get object edge covariance
         main_graph->addNewObjectDetection(object_detection);
+
+        } catch (const std::exception & e) {
+           ERROR("Exception: " << e.what());
+           continue;
+        }
       }
       auto sharing = temp_graph.use_count();
       if (sharing > 1) {
@@ -331,11 +328,11 @@ void OptimizerG2O::updateOdomMapTransform()
 
   // Eigen::Isometry3d new_map_odom_tranform = initial_earth_to_map_transform_.inverse() * getOptimizedPose() * last_odometry_added_.odometry.inverse();
   Eigen::Isometry3d new_map_odom_tranform = earth_map_transform_.inverse() * getOptimizedPose() * last_odometry_added_.odometry.inverse();
-  // Eigen::Isometry3d map_odom_diff = new_map_odom_tranform.inverse() * map_odom_tranform_;
-  // if (map_odom_diff.translation().norm() > map_odom_security_threshold_) {
-  //   WARN("Map-Odom transform difference is too big: " << map_odom_diff.translation().norm());
-  //   return;
-  // }
+  Eigen::Isometry3d map_odom_diff = new_map_odom_tranform.inverse() * map_odom_tranform_;
+  if (map_odom_diff.translation().norm() > map_odom_security_threshold_) {
+    WARN("Big Map-Odom transform difference: " << map_odom_diff.translation().norm());
+    // return;
+  }
   map_odom_tranform_ = new_map_odom_tranform;
 }
 

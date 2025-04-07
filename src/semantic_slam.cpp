@@ -365,7 +365,7 @@ void SemanticSlam::processArucoMsg(
     double distance = aruco_pose.translation().norm();
     aruco_covariance = aruco_covariance * distance * distance;
   }
-  WARN(aruco_covariance);
+  // WARN(aruco_covariance);
 
   bool detections_are_absolute = false;
 
