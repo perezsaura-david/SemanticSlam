@@ -241,6 +241,10 @@ void GraphG2O::addNewObjectDetection(
 
 Eigen::MatrixXd GraphG2O::computeNodeCovariance(GraphNode * _node)
 {
+  if (!_node->getVertex()) {
+    ERROR_GRAPH("Node has no vertex");
+    return Eigen::MatrixXd();
+  }
   int node_id = _node->getVertex()->id();   // Get the g2o vertex ID
   g2o::SparseBlockMatrix<Eigen::MatrixXd> spinv;
 

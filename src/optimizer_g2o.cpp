@@ -148,6 +148,10 @@ bool OptimizerG2O::handleNewOdom(
       // FLAG("ADD TEMP GRAPH DETECTIONS TO MAIN GRAPH");
       for (auto object : temp_graph->getObjectNodes()) {
         // TODO(dps): Get all the nodes related and create new edges
+        if (!object.second) {
+          ERROR("Object node is null");
+          continue;
+        }
         try {
           ObjectDetection * object_detection;
           ArucoNode * aruco_node = dynamic_cast<ArucoNode *>(object.second);
@@ -165,15 +169,15 @@ bool OptimizerG2O::handleNewOdom(
 
           GateNode * gate_node = dynamic_cast<GateNode *>(object.second);
           if (gate_node) {
-              Eigen::MatrixXd cov_matrix = temp_graph->computeNodeCovariance(gate_node);
-              if (cov_matrix.size() == 0) {
-                WARN("Matrix is empty! Using default matrix");
-                // cov_matrix = main_graph_object_covariance;
-                continue;
-              }
-              object_detection = new GateDetection(
-                object.first,
-                gate_node->getPosition(), cov_matrix, true);
+            Eigen::MatrixXd cov_matrix = temp_graph->computeNodeCovariance(gate_node);
+            if (cov_matrix.size() == 0) {
+              WARN("Matrix is empty! Using default matrix");
+              // cov_matrix = main_graph_object_covariance;
+              continue;
+            }
+            object_detection = new GateDetection(
+              object.first,
+              gate_node->getPosition(), cov_matrix, true);
         }
 
         if (!object_detection->prepareMeasurements(new_odometry_info)) {
@@ -197,7 +201,7 @@ bool OptimizerG2O::handleNewOdom(
     }
   }
 
-  if (temp_graph_generated_) {
+  if (temp_graph_generated_ && temp_graph) {
     temp_graph.reset();
     temp_graph = std::make_shared<GraphG2O>("Temp Graph");
     temp_graph_generated_ = false;
@@ -321,18 +325,8 @@ void OptimizerG2O::setParameters(const OptimizerG2OParameters & _params)
 
 void OptimizerG2O::updateOdomMapTransform()
 {
-  // Eigen::Isometry3d new_map_odom_tranform = getOptimizedPose() * last_odometry_added_.odometry.inverse() * earth_to_map_transform_.inverse();
-  // return;
-  //
   earth_map_transform_ = getOptimizedMapPose();
-  // DEBUG(earth_map_transform_.translation());
-  // Eigen::Vector3d euler_angles = earth_map_transform_.rotation().eulerAngles(0, 1, 2);
-  // DEBUG(euler_angles);
 
-  // auto actual_map_to_odom_transform = earth_to_map_transform_.inverse() * getOptimizedPose();
-
-
-  // Eigen::Isometry3d new_map_odom_tranform = initial_earth_to_map_transform_.inverse() * getOptimizedPose() * last_odometry_added_.odometry.inverse();
   Eigen::Isometry3d new_map_odom_tranform = earth_map_transform_.inverse() * getOptimizedPose() * last_odometry_added_.odometry.inverse();
   Eigen::Isometry3d map_odom_diff = new_map_odom_tranform.inverse() * map_odom_tranform_;
   if (map_odom_diff.translation().norm() > map_odom_security_threshold_) {
@@ -340,6 +334,9 @@ void OptimizerG2O::updateOdomMapTransform()
     // return;
   }
   map_odom_tranform_ = new_map_odom_tranform;
+  // Create a filter to update the map odom transform more smooth
+  // double alpha = 0.1;
+  // map_odom_tranform_ = map_odom_tranform_ * (1-alpha) + new_map_odom_tranform * (alpha);
 }
 
 Eigen::Isometry3d OptimizerG2O::getOptimizedPose()
