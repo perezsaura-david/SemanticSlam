@@ -47,6 +47,7 @@
 #include <g2o/types/slam3d/vertex_se3.h>
 
 #include <memory>
+#include <mutex>
 
 #include "as2_slam/graph_g2o.hpp"
 #include "as2_slam/object_detection_types.hpp"
@@ -74,6 +75,7 @@ public:
   ~OptimizerG2O() {}
   std::shared_ptr<GraphG2O> main_graph;
   std::shared_ptr<GraphG2O> temp_graph;
+  std::mutex graph_mutex_;
   void setParameters(const OptimizerG2OParameters & _params);
   Eigen::Isometry3d getOptimizedPose();
   Eigen::Isometry3d getOptimizedMapPose();

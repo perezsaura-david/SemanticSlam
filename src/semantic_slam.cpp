@@ -298,6 +298,7 @@ void SemanticSlam::detectionsCallback(
     ERROR("No object type provided. Force object type or use 'type' field in msg");
     return;
   }
+  
   for (auto & detection : msg->poses) {
     if (object_type == "aruco") {
       processArucoMsg(detection, detection_odometry_info);
@@ -445,14 +446,9 @@ void SemanticSlam::visualizeMainGraph()
 
 void SemanticSlam::visualizeTempGraph()
 {
+  optimizer_ptr_->graph_mutex_.lock();
   if (!optimizer_ptr_->temp_graph) {
     WARN("Temp graph not created yet");
-    return;
-  }
-  try { 
-    optimizer_ptr_->temp_graph->getName(); 
-  } catch (...) {
-    WARN("Can't access Temp graph methods");
     return;
   }
   visualization_msgs::msg::MarkerArray viz_odom_nodes_msg =
@@ -461,6 +457,7 @@ void SemanticSlam::visualizeTempGraph()
   visualization_msgs::msg::MarkerArray viz_edges_msg =
     generateVizEdgesMsg(optimizer_ptr_->temp_graph);
   viz_temp_markers_pub_->publish(viz_edges_msg);
+  optimizer_ptr_->graph_mutex_.unlock();
 }
 
 void SemanticSlam::visualizeCleanTempGraph()

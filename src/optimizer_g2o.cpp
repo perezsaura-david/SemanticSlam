@@ -39,6 +39,7 @@
 #include <Eigen/src/Core/Matrix.h>
 #include <Eigen/src/Geometry/Transform.h>
 #include <memory>
+#include <mutex>
 #include <utility>
 #include <vector>
 #include <string>
@@ -141,6 +142,7 @@ bool OptimizerG2O::handleNewOdom(
     new_odometry_info.map_ref, new_odometry_info.increment,
     new_odometry_info.covariance_matrix);
 
+  graph_mutex_.lock();
   if (temp_graph_generated_ && temp_graph) {
     if (temp_graph->optimizeGraph()) {
       // FLAG("ADD TEMP GRAPH DETECTIONS TO MAIN GRAPH");
@@ -194,10 +196,13 @@ bool OptimizerG2O::handleNewOdom(
       ERROR("Temp graph optimization failed");
     }
   }
+  graph_mutex_.unlock();
 
   if (temp_graph_generated_) {
+    graph_mutex_.lock();
     temp_graph.reset();
     temp_graph = std::make_shared<GraphG2O>("Temp Graph");
+    graph_mutex_.unlock();
     temp_graph_generated_ = false;
   }
 
@@ -271,8 +276,11 @@ void OptimizerG2O::handleNewObjectDetection(
     ERROR("Prepare detection ERROR");
     return;
   }
-
+  
+  // std::lock_guard<std::mutex> lock(graph_mutex_);
+  graph_mutex_.lock();
   temp_graph->addNewObjectDetection(_object);
+  graph_mutex_.unlock();
   // debugGraphVertices(temp_graph);
   // temp_graph->optimizeGraph();
   // debugGraphVertices(temp_graph);
