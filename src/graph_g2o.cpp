@@ -185,6 +185,10 @@ void GraphG2O::addNode(GraphNode & _node)
 {
   int id = n_vertices_++;
   _node.getVertex()->setId(id);
+  if (!graph_){
+    WARN_GRAPH("Graph is null");
+    return;
+  }
   if (!graph_->addVertex(_node.getVertex())) {
     WARN_GRAPH("Vertex not added");
     return;
@@ -241,12 +245,15 @@ void GraphG2O::addNewObjectDetection(
 
 Eigen::MatrixXd GraphG2O::computeNodeCovariance(GraphNode * _node)
 {
-  if (!_node->getVertex()) {
-    ERROR_GRAPH("Node has no vertex");
-    return Eigen::MatrixXd();
-  }
+  // ERROR_GRAPH("Compute node covariance");
+  // if (!_node->getVertex()) {
+  //   ERROR_GRAPH("Node has no vertex");
+  //   return Eigen::MatrixXd();
+  // }
+  // ERROR_GRAPH("Node has vertex");
   int node_id = _node->getVertex()->id();   // Get the g2o vertex ID
   g2o::SparseBlockMatrix<Eigen::MatrixXd> spinv;
+  // ERROR_GRAPH("Node has id");
 
   auto node_se3 = dynamic_cast<g2o::VertexSE3 *>(_node->getVertex());
   if (node_se3) {
@@ -258,18 +265,54 @@ Eigen::MatrixXd GraphG2O::computeNodeCovariance(GraphNode * _node)
   }
   // WARN_GRAPH("COVARIANCE\n" << spinv);
 
+  // ERROR_GRAPH("Computer Marginals");
   if (spinv.nonZeroBlocks() < 1) {
     // std::cout << spinv.nonZeros() << std::endl;
     // WARN_GRAPH("No covariance block found for node ID " << node_id);
     return Eigen::MatrixXd();     // Return an empty matrix
   }
 
+  // ERROR_GRAPH("Covariance block found");
+  // for (size_t c = 0; c < spinv.blockCols().size(); ++c) {
+  //   for (auto it = spinv.blockCols()[c].begin(); it != spinv.blockCols()[c].end(); ++it) {
+  //     int row = it->first;
+  //     // ERROR_GRAPH("Covariance block available at (" << row << ", " << c << ")");
+  //   }
+  // }
+
+  // ERROR_GRAPH(PRINT_VAR(node_id));
+
   Eigen::MatrixXd covariance;
   auto block_cols = spinv.blockCols();
+  // ERROR_GRAPH("Covariance block cols size: " << block_cols.size());
+  if (node_id - 1 >= block_cols.size()) {
+    ERROR_GRAPH("Node ID " << node_id << " is out of bounds for block_cols");
+    return Eigen::MatrixXd();     // Return an empty matrix
+  }
   auto it = block_cols[node_id - 1].find(node_id - 1);
-  if (it != block_cols[node_id].end()) {
+  // ERROR_GRAPH("Covariance block found for node ID " << node_id);
+  // std::cout << "CHECK IT" << (block_cols[node_id - 1].end() == block_cols[node_id-1].end()) << std::endl;
+  if (it != block_cols[node_id-1].end()) {
     covariance = *it->second;
   }
+  // if (it != block_cols[node_id].end()) {
+  //   covariance = *it->second;
+  // }
+  // auto* block = spinv.block(node_id, node_id);
+  // if (block) {
+  //   covariance = *block;
+  //   // ERROR_GRAPH("Covariance block successfully retrieved");
+  // } else {
+  //   ERROR_GRAPH("Covariance block not found for node ID " << node_id);
+  //   return Eigen::MatrixXd();     // Return an empty matrix
+  // }
+  // if (spinv.block(node_id, node_id, false)) {
+  //   covariance = *spinv.block(node_id, node_id, false);
+  //   // ERROR_GRAPH("Covariance block successfully retrieved for node ID " << node_id);
+  // } else {
+  //   ERROR_GRAPH("Covariance block NOT found for node ID " << node_id);
+  //   return Eigen::MatrixXd();     // Return an empty matrix
+  // }
 
   return covariance;
 }

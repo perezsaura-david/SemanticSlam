@@ -23,6 +23,7 @@
     map_odom_security_threshold: 999.9
     detection_covariance_by_distance: false
     detection_covariance_factor: 0.01
+    map_odom_transform_alpha: 1.0
     earth_to_map:
       x: 0.0 # Set manually x offset of the map frame from the earth frame
       y: 0.0 # Set manually y offset of the map frame from the earth frame

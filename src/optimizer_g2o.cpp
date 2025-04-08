@@ -57,6 +57,8 @@ OptimizerG2O::OptimizerG2O()
 
   main_graph = std::make_shared<GraphG2O>("Main Graph");
   temp_graph = std::make_shared<GraphG2O>("Temp Graph");
+  DEBUG(PRINT_VAR(main_graph));
+  DEBUG(PRINT_VAR(temp_graph));
 
   if (odometry_is_relative_) {
     PARAM("Relative odometry");
@@ -152,6 +154,7 @@ bool OptimizerG2O::handleNewOdom(
           ERROR("Object node is null");
           continue;
         }
+        // debugGraphVertices(temp_graph);
         try {
           ObjectDetection * object_detection;
           ArucoNode * aruco_node = dynamic_cast<ArucoNode *>(object.second);
@@ -300,11 +303,13 @@ void OptimizerG2O::setParameters(const OptimizerG2OParameters & _params)
   generate_odom_map_transform_ = _params.generate_odom_map_transform;
   fixed_objects_ = _params.fixed_objects;
   initial_earth_to_map_transform_ = _params.earth_to_map_transform;
+  map_odom_transform_alpha_ = _params.map_odom_transform_alpha;
   earth_map_transform_ = initial_earth_to_map_transform_;
 
   PARAM(PRINT_VAR(main_graph_odometry_distance_threshold_));
   PARAM(PRINT_VAR(temp_graph_odometry_distance_threshold_));
   PARAM(PRINT_VAR(main_graph_odometry_distance_threshold_if_detections_));
+  PARAM(PRINT_VAR(map_odom_transform_alpha_));
 
   Eigen::MatrixXd earth_to_map_covariance_ = Eigen::MatrixXd::Identity(6, 6) * 0.0001;
   earth_to_map_covariance_(5, 5) = 0.1;
@@ -328,15 +333,34 @@ void OptimizerG2O::updateOdomMapTransform()
   earth_map_transform_ = getOptimizedMapPose();
 
   Eigen::Isometry3d new_map_odom_tranform = earth_map_transform_.inverse() * getOptimizedPose() * last_odometry_added_.odometry.inverse();
-  Eigen::Isometry3d map_odom_diff = new_map_odom_tranform.inverse() * map_odom_tranform_;
-  if (map_odom_diff.translation().norm() > map_odom_security_threshold_) {
-    WARN("Big Map-Odom transform difference: " << map_odom_diff.translation().norm());
-    // return;
+  // Eigen::Isometry3d map_odom_diff = new_map_odom_tranform.inverse() * map_odom_tranform_;
+  // if (map_odom_diff.translation().norm() > map_odom_security_threshold_) {
+  //   WARN("Big Map-Odom transform difference: " << map_odom_diff.translation().norm());
+  // }
+  if (map_odom_transform_alpha_ < 1.0) {
+    Eigen::Isometry3d filtered_map_odom_transform = filterTransform(map_odom_tranform_, new_map_odom_tranform);
+    map_odom_tranform_ = filtered_map_odom_transform;
   }
-  map_odom_tranform_ = new_map_odom_tranform;
-  // Create a filter to update the map odom transform more smooth
-  // double alpha = 0.1;
-  // map_odom_tranform_ = map_odom_tranform_ * (1-alpha) + new_map_odom_tranform * (alpha);
+  else {
+    map_odom_tranform_ = new_map_odom_tranform;
+  }
+}
+
+Eigen::Isometry3d OptimizerG2O::filterTransform(Eigen::Isometry3d _last_transform, Eigen::Isometry3d _new_transform) {
+  // Interpolate translation
+  Eigen::Vector3d old_translation = _last_transform.translation();
+  Eigen::Vector3d new_translation = _new_transform.translation();
+  Eigen::Vector3d filtered_translation = (1.0 - map_odom_transform_alpha_) * old_translation + map_odom_transform_alpha_ * new_translation;
+  // Interpolate rotation
+  Eigen::Quaterniond old_rot(_last_transform.rotation());
+  Eigen::Quaterniond new_rot(_new_transform.rotation());
+  Eigen::Quaterniond filtered_rot = old_rot.slerp(map_odom_transform_alpha_, new_rot);
+  // Compose the filtered transform
+  Eigen::Isometry3d filtered_transform = Eigen::Isometry3d::Identity();
+  filtered_transform.linear() = filtered_rot.toRotationMatrix();
+  filtered_transform.translation() = filtered_translation;
+
+  return filtered_transform;
 }
 
 Eigen::Isometry3d OptimizerG2O::getOptimizedPose()

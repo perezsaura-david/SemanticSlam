@@ -62,6 +62,7 @@ struct OptimizerG2OParameters
   double temp_graph_odometry_orientation_threshold;  // radians
   double main_graph_odometry_distance_threshold_if_detections;     // meters
   double map_odom_security_threshold;                // meters
+  double map_odom_transform_alpha;
   bool odometry_is_relative;
   bool generate_odom_map_transform;
   Eigen::Isometry3d earth_to_map_transform;
@@ -81,6 +82,7 @@ public:
   Eigen::Isometry3d getOptimizedMapPose();
   Eigen::Isometry3d getMapOdomTransform();
   Eigen::Isometry3d getMapTransform();
+  Eigen::Isometry3d filterTransform(Eigen::Isometry3d _last_transform, Eigen::Isometry3d _new_transform);
 
   bool handleNewOdom(
     const OdometryWithCovariance & _new_odometry);
@@ -105,6 +107,7 @@ private:
   // TODO(dps): add time_threshold_
   double translation_distance_from_last_node_ = 0.0;
   double rotation_distance_from_last_node_ = 0.0;
+  double map_odom_transform_alpha_ = 1.0;
   OdometryWithCovariance last_odometry_added_;
   OdometryWithCovariance last_detection_odometry_added_;
   Eigen::Isometry3d map_odom_tranform_;

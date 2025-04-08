@@ -94,6 +94,7 @@ private:
   visualization_msgs::msg::MarkerArray generateCleanMarkersMsg();
   void updateMapOdomTransform(const std_msgs::msg::Header & _header);
   void updateEarthMapTransform(const std_msgs::msg::Header & _header);
+  // Eigen::Isometry3d filterTransform(Eigen::Isometry3d _last_transform, Eigen::Isometry3d _new_transform);
 
   void processOdometryReceived(
     const Eigen::Isometry3d _odom_pose,
@@ -133,6 +134,7 @@ private:
   geometry_msgs::msg::TransformStamped map_odom_transform_msg_;
   geometry_msgs::msg::TransformStamped earth_map_transform_msg_;
   Eigen::Isometry3d earth_to_map_transform_;
+  Eigen::Isometry3d last_published_map_odom_transform_;
 
   // PARAMETERS
   std::string earth_frame_ = "earth";
@@ -142,6 +144,7 @@ private:
   std::string robot_frame_;
   std::string force_object_type_;
   double detection_covariance_factor_ = 0.01;
+  // double map_odom_transform_alpha_ = 1.0;
   bool detection_covariance_by_distance_ = true;
   bool odometry_is_relative_ = false;
   bool generate_odom_map_transform_ = false;
