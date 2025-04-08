@@ -199,6 +199,10 @@ void GraphG2O::addNode(GraphNode & _node)
 void GraphG2O::addEdge(GraphEdge & _edge)
 {
   int id = n_edges_++;
+  if (!graph_){
+    WARN_GRAPH("Graph is null");
+    return;
+  }
   _edge.getEdge()->setId(id);
   if (!graph_->addEdge(_edge.getEdge())) {
     WARN_GRAPH("Edge not added");
