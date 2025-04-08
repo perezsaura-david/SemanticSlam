@@ -244,6 +244,7 @@ bool OptimizerG2O::checkAddingNewDetection(
 {
 
   // graph_mutex_.lock();
+  std::lock_guard<std::mutex> lock(graph_mutex_);
   if (!temp_graph_generated_) {
     last_detection_odometry_added_ = last_odometry_added_;
   }
