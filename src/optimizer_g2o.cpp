@@ -242,6 +242,8 @@ bool OptimizerG2O::checkAddingNewDetection(
   const OdometryWithCovariance & _detection_odometry,
   OdometryInfo & _detection_odometry_info)
 {
+
+  graph_mutex_.lock();
   if (!temp_graph_generated_) {
     last_detection_odometry_added_ = last_odometry_added_;
   }
@@ -265,6 +267,8 @@ bool OptimizerG2O::checkAddingNewDetection(
       _detection_odometry_info.map_ref, _detection_odometry_info.increment,
       _detection_odometry_info.covariance_matrix);
   }
+
+  graph_mutex_.unlock();
 
   last_detection_odometry_added_.odometry = _detection_odometry_info.odom_ref;
   last_detection_odometry_added_.covariance = _detection_odometry.covariance;
