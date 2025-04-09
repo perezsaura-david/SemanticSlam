@@ -21,6 +21,7 @@
     odometry_is_relative: false
     generate_odom_map_transform: false
     map_odom_security_threshold: 999.9
+    calculate_odom_covariance: false
     detection_covariance_by_distance: false
     detection_covariance_by_distance2: false
     detection_covariance_factor: 0.01
