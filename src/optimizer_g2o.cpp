@@ -92,7 +92,22 @@ bool OptimizerG2O::generateOdometryInfo(
     // ABSOLUTE ODOMETRY
     _odometry_info.odom_ref = _new_odometry.odometry;
     _odometry_info.increment = _last_odometry_added.odometry.inverse() * _odometry_info.odom_ref;
-    _odometry_info.covariance_matrix = _new_odometry.covariance;
+    if (calculate_odom_covariance_) {
+      // WARN("Calculating odometry covariance");
+      _odometry_info.covariance_matrix = Eigen::MatrixXd::Zero(6, 6);
+      _odometry_info.covariance_matrix(0, 0) = fabs(_new_odometry.covariance(0, 0) - 
+        _last_odometry_added.covariance(0, 0));
+      _odometry_info.covariance_matrix(1, 1) = fabs(_new_odometry.covariance(1, 1) - 
+        _last_odometry_added.covariance(1, 1));
+      _odometry_info.covariance_matrix(2, 2) = fabs(_new_odometry.covariance(2, 2) -
+        _last_odometry_added.covariance(2, 2));
+      _odometry_info.covariance_matrix(3, 3) = _new_odometry.covariance(3, 3);
+      _odometry_info.covariance_matrix(4, 4) = _new_odometry.covariance(4, 4);
+      _odometry_info.covariance_matrix(5, 5) = _new_odometry.covariance(5, 5);
+    } else {
+      // WARN("Using odometry covariance");
+      _odometry_info.covariance_matrix = _new_odometry.covariance;
+    }
     // _odometry_info.covariance_matrix = _new_odometry.covariance - _last_odometry_added.covariance;
   }
   _odometry_info.map_ref = initial_earth_to_map_transform_ * _odometry_info.odom_ref;
@@ -310,11 +325,13 @@ void OptimizerG2O::setParameters(const OptimizerG2OParameters & _params)
   initial_earth_to_map_transform_ = _params.earth_to_map_transform;
   map_odom_transform_alpha_ = _params.map_odom_transform_alpha;
   earth_map_transform_ = initial_earth_to_map_transform_;
+  calculate_odom_covariance_ = _params.calculate_odom_covariance_;
 
   PARAM(PRINT_VAR(main_graph_odometry_distance_threshold_));
   PARAM(PRINT_VAR(temp_graph_odometry_distance_threshold_));
   PARAM(PRINT_VAR(main_graph_odometry_distance_threshold_if_detections_));
   PARAM(PRINT_VAR(map_odom_transform_alpha_));
+  PARAM(PRINT_VAR(calculate_odom_covariance_));
 
   Eigen::MatrixXd earth_to_map_covariance_ = Eigen::MatrixXd::Identity(6, 6) * 0.0001;
   earth_to_map_covariance_(5, 5) = 0.1;

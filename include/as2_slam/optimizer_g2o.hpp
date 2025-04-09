@@ -65,6 +65,7 @@ struct OptimizerG2OParameters
   double map_odom_transform_alpha;
   bool odometry_is_relative;
   bool generate_odom_map_transform;
+  bool calculate_odom_covariance_;
   Eigen::Isometry3d earth_to_map_transform;
   std::vector<FixedObject> fixed_objects;
 };
@@ -124,6 +125,7 @@ private:
   double map_odom_security_threshold_ = 2.0;                // meters
   bool odometry_is_relative_ = false;
   bool generate_odom_map_transform_ = false;
+  bool calculate_odom_covariance_ = false;
   std::vector<FixedObject> fixed_objects_;
 };
 

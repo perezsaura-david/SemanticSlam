@@ -276,6 +276,7 @@ void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
   }
   Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> odom_covariance(
     msg->pose.covariance.data());
+  // WARN("Odometry covariance: " << odom_covariance);
   // Eigen::Matrix<double, 6, 6> odom_covariance = Eigen::MatrixXd::Identity(6, 6) * 10e-5;
   // odom_covariance(0,0) = 10e-3;
   processOdometryReceived(odom_isometry, odom_covariance, msg->header);
@@ -584,6 +585,8 @@ OptimizerG2OParameters SemanticSlam::getOptimizerParameters() {
   generate_odom_map_transform_ = optimizer_params.generate_odom_map_transform;
   optimizer_params.map_odom_transform_alpha = this->get_parameter(
     "map_odom_transform_alpha").as_double();
+  optimizer_params.calculate_odom_covariance_ = this->get_parameter(
+    "calculate_odom_covariance").as_bool();
 
   double earth_to_map_x = 0.0;
   double earth_to_map_y = 0.0;
