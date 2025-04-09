@@ -92,11 +92,15 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
   }
 
   detection_covariance_by_distance_ = this->get_parameter("detection_covariance_by_distance").as_bool();
+  detection_covariance_by_distance2_ = this->get_parameter("detection_covariance_by_distance2").as_bool();
   detection_covariance_factor_ = this->get_parameter("detection_covariance_factor").as_double();
+  detection_orientation_covariance_factor_ = this->get_parameter("detection_orientation_covariance_factor").as_double();
   // map_odom_transform_alpha_ = this->get_parameter(
   //   "map_odom_transform_alpha").as_double();
 
   PARAM("Detection covariance by distance: " << std::boolalpha
+    << detection_covariance_by_distance_); 
+  PARAM("Detection covariance by distance2: " << std::boolalpha
     << detection_covariance_by_distance_); 
   PARAM(PRINT_VAR(detection_covariance_factor_));
   // PARAM(PRINT_VAR(map_odom_transform_alpha_));
@@ -367,6 +371,10 @@ void SemanticSlam::processGateMsg(
   Eigen::Matrix<double, 3, 3> gate_covariance = Eigen::MatrixXd::Identity(3, 3) * detection_covariance_factor_;
   if (detection_covariance_by_distance_) {
     double distance = gate_position.norm();
+    gate_covariance = Eigen::MatrixXd::Identity(3, 3) * distance;
+  }
+  else if (detection_covariance_by_distance2_) {
+    double distance = gate_position.norm();
     gate_covariance = Eigen::MatrixXd::Identity(3, 3) * distance * distance;
   }
 
@@ -393,8 +401,16 @@ void SemanticSlam::processArucoMsg(
   Eigen::Matrix<double, 6, 6> aruco_covariance = Eigen::MatrixXd::Identity(6, 6) * detection_covariance_factor_;
   if (detection_covariance_by_distance_) {
     double distance = aruco_pose.translation().norm();
+    aruco_covariance = aruco_covariance * distance;
+  }
+  if (detection_covariance_by_distance2_) {
+    double distance = aruco_pose.translation().norm();
     aruco_covariance = aruco_covariance * distance * distance;
   }
+  aruco_covariance(3, 3) *= detection_orientation_covariance_factor_;
+  aruco_covariance(4, 4) *= detection_orientation_covariance_factor_;
+  aruco_covariance(5, 5) *= detection_orientation_covariance_factor_;
+
   // WARN(aruco_covariance);
 
   bool detections_are_absolute = false;
