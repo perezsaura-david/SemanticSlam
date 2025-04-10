@@ -95,15 +95,24 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
   detection_covariance_by_distance2_ = this->get_parameter("detection_covariance_by_distance2").as_bool();
   detection_covariance_factor_ = this->get_parameter("detection_covariance_factor").as_double();
   detection_orientation_covariance_factor_ = this->get_parameter("detection_orientation_covariance_factor").as_double();
+  generate_orientation_cov_by_distance_ = this->get_parameter("generate_orientation_cov_by_distance").as_bool();
+  distance_for_orientation_covariance_increment_ = this->get_parameter(
+    "distance_for_orientation_covariance_increment").as_double();
+  detection_orientation_covariance_large_factor_ = this->get_parameter(
+    "detection_orientation_covariance_large_factor").as_double();
   // map_odom_transform_alpha_ = this->get_parameter(
   //   "map_odom_transform_alpha").as_double();
 
   PARAM("Detection covariance by distance: " << std::boolalpha
     << detection_covariance_by_distance_); 
   PARAM("Detection covariance by distance2: " << std::boolalpha
-    << detection_covariance_by_distance_); 
+    << detection_covariance_by_distance2_); 
   PARAM(PRINT_VAR(detection_covariance_factor_));
   // PARAM(PRINT_VAR(map_odom_transform_alpha_));
+  PARAM(PRINT_VAR(detection_orientation_covariance_factor_));
+  PARAM(PRINT_VAR(generate_orientation_cov_by_distance_));
+  PARAM(PRINT_VAR(distance_for_orientation_covariance_increment_));
+  PARAM(PRINT_VAR(detection_orientation_covariance_large_factor_));
 
 // VISUALIZATION
   visualize_graphs_ = this->get_parameter("visualize_graphs").as_bool();
@@ -411,7 +420,16 @@ void SemanticSlam::processArucoMsg(
   aruco_covariance(3, 3) *= detection_orientation_covariance_factor_;
   aruco_covariance(4, 4) *= detection_orientation_covariance_factor_;
   aruco_covariance(5, 5) *= detection_orientation_covariance_factor_;
-
+  // calculate distance
+  if (generate_orientation_cov_by_distance_) {
+    float distance = aruco_pose.translation().norm();
+    if (distance > distance_for_orientation_covariance_increment_) {
+      ERROR("Increasing orientation covariance");
+      aruco_covariance(3, 3) *= detection_orientation_covariance_large_factor_;
+      aruco_covariance(4, 4) *= detection_orientation_covariance_large_factor_;
+      aruco_covariance(5, 5) *= detection_orientation_covariance_large_factor_;
+    }
+  }
   // WARN(aruco_covariance);
 
   bool detections_are_absolute = false;

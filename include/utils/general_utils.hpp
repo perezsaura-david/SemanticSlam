@@ -63,7 +63,7 @@
             << std::endl
 #define INFO(x) // std::cout << x << std::endl
 #define PARAM(x) \
-  std::cout << BLUE_COLOR << "[PARAMS] " << x << RESET_COLOR << std::endl
+  std::cout << CYAN_COLOR << "[PARAMS] " << x << RESET_COLOR << std::endl
 
 #define NAME(x) "[" << x << "] "
 

@@ -145,12 +145,15 @@ private:
   std::string force_object_type_;
   double detection_covariance_factor_ = 0.01;
   double detection_orientation_covariance_factor_ = 10;
+  double distance_for_orientation_covariance_increment_ = 10;
+  double detection_orientation_covariance_large_factor_ = 100;
   // double map_odom_transform_alpha_ = 1.0;
   bool detection_covariance_by_distance_ = false;
   bool detection_covariance_by_distance2_ = false;
   bool odometry_is_relative_ = false;
   bool generate_odom_map_transform_ = false;
   bool visualize_graphs_ = false;
+  bool generate_orientation_cov_by_distance_ = false;
 
 
   // TF publishers
