@@ -424,7 +424,7 @@ void SemanticSlam::processArucoMsg(
   if (generate_orientation_cov_by_distance_) {
     float distance = aruco_pose.translation().norm();
     if (distance > distance_for_orientation_covariance_increment_) {
-      ERROR("Increasing orientation covariance");
+      // ERROR("Increasing orientation covariance");
       aruco_covariance(3, 3) *= detection_orientation_covariance_large_factor_;
       aruco_covariance(4, 4) *= detection_orientation_covariance_large_factor_;
       aruco_covariance(5, 5) *= detection_orientation_covariance_large_factor_;
