@@ -82,6 +82,7 @@ public:
       WARN("Information Matrix Empty");
     }
     if (_node1 == nullptr || _node2 == nullptr) {
+      ERROR("Node1 or Node2 is null");
       return;
     }
     edge_ = new g2o::EdgeSE3();

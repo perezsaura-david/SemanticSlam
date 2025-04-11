@@ -160,6 +160,10 @@ bool OptimizerG2O::handleNewOdom(
     new_odometry_info.covariance_matrix);
 
   graph_mutex_.lock();
+  if (temp_graph == nullptr) {
+    ERROR("Temp graph is null");
+    return false;
+  }
   if (temp_graph_generated_ && temp_graph) {
     if (temp_graph->optimizeGraph()) {
       // FLAG("ADD TEMP GRAPH DETECTIONS TO MAIN GRAPH");
@@ -260,6 +264,10 @@ bool OptimizerG2O::checkAddingNewDetection(
 
   // graph_mutex_.lock();
   std::lock_guard<std::mutex> lock(graph_mutex_);
+  if (temp_graph == nullptr) {
+    ERROR("Temp graph is null");
+    return false;
+  }
   if (!temp_graph_generated_) {
     last_detection_odometry_added_ = last_odometry_added_;
   }
@@ -304,6 +312,10 @@ void OptimizerG2O::handleNewObjectDetection(
   
   // std::lock_guard<std::mutex> lock(graph_mutex_);
   graph_mutex_.lock();
+  if (temp_graph == nullptr) {
+    ERROR("Temp graph is null");
+    return;
+  }
   temp_graph->addNewObjectDetection(_object);
   graph_mutex_.unlock();
   // debugGraphVertices(temp_graph);
