@@ -203,6 +203,10 @@ void GraphG2O::addEdge(GraphEdge & _edge)
     WARN_GRAPH("Graph is null");
     return;
   }
+  if (_edge.getEdge() == nullptr) {
+    ERROR_GRAPH("Edge is null");
+    return;
+  }
   _edge.getEdge()->setId(id);
   if (!graph_->addEdge(_edge.getEdge())) {
     WARN_GRAPH("Edge not added");
@@ -223,6 +227,10 @@ void GraphG2O::addNewKeyframe(
   OdomEdge * odom_edge(new OdomEdge(
       last_odom_node_, odom_node, _relative_pose,
       information_matrix));
+  if (odom_edge == nullptr) {
+    ERROR_GRAPH("Odom edge is null");
+    return;
+  }
   addEdge(*odom_edge);
   last_odom_node_ = odom_node;
 }
@@ -250,6 +258,10 @@ void GraphG2O::addNewObjectDetection(
   }
 
   GraphEdge * object_edge = _object_detection->createEdge(last_odom_node_, object_node);
+  if (object_edge == nullptr) {
+    ERROR_GRAPH("Object edge is null");
+    return;
+  }
   addEdge(*object_edge);
 }
 
