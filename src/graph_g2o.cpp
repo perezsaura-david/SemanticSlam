@@ -230,6 +230,9 @@ void GraphG2O::addNewKeyframe(
 void GraphG2O::addNewObjectDetection(
   ObjectDetection * _object_detection)
 {
+  if (_object_detection == nullptr) {
+    return;
+  }
   GraphNode * object_node;
   // Get object node from list
   object_node = obj_id2node_[_object_detection->getId()];
@@ -241,6 +244,9 @@ void GraphG2O::addNewObjectDetection(
     FLAG_GRAPH("Added new object ID: " << _object_detection->getId());
   } else {
     // INFO_GRAPH("Already detected object ID: " << _object_detection->getId());
+  }
+  if (_object_detection == nullptr) {
+    return;
   }
 
   GraphEdge * object_edge = _object_detection->createEdge(last_odom_node_, object_node);
