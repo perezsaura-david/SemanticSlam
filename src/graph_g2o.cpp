@@ -246,6 +246,10 @@ void GraphG2O::addNewObjectDetection(
   object_node = obj_id2node_[_object_detection->getId()];
   if (!object_node) {
     object_node = _object_detection->createNode();
+    if (object_node == nullptr) {
+      ERROR_GRAPH("Failed to create object node");
+      return;
+    }
     addNode(*object_node);
 
     obj_id2node_[_object_detection->getId()] = object_node;
@@ -253,7 +257,9 @@ void GraphG2O::addNewObjectDetection(
   } else {
     // INFO_GRAPH("Already detected object ID: " << _object_detection->getId());
   }
-  if (_object_detection == nullptr) {
+
+  if (last_odom_node_ == nullptr) {
+    ERROR_GRAPH("last_odom_node_ is null, graph not initialized");
     return;
   }
 

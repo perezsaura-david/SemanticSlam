@@ -204,6 +204,7 @@ public:
         g2o::VertexSE3 * node_se3 = dynamic_cast<g2o::VertexSE3 *>(getEdge()->vertices()[i]);
         if (!node_se3) {
           DEBUG("Node SE3 not found");
+          return edge_marker_msg;
         }
         position = node_se3->estimate().translation();
       } else {
@@ -211,6 +212,7 @@ public:
           dynamic_cast<g2o::VertexPointXYZ *>(getEdge()->vertices()[i]);
         if (!node_point3D) {
           DEBUG("Node Point3D not found");
+          return edge_marker_msg;
         }
         position = node_point3D->estimate();
       }

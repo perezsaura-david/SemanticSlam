@@ -102,8 +102,8 @@ private:
   int n_vertices_ = 0;
   int n_edges_ = 0;
   std::string name_;
-  OdomNode * last_odom_node_;
-  OdomNode * map_node_;
+  OdomNode * last_odom_node_ = nullptr;
+  OdomNode * map_node_ = nullptr;
   std::vector<GraphNode *> graph_nodes_;
   std::vector<GraphEdge *> graph_edges_;
 };

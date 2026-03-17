@@ -180,6 +180,11 @@ SemanticSlam::SemanticSlam(rclcpp::NodeOptions & options)
   // Callback group
   tf_callback_group_ = this->create_callback_group(
     rclcpp::CallbackGroupType::MutuallyExclusive);
+    if(visualize_graphs_) {
+      WARN("Visualizing graphs");
+      visualizeMainGraph();
+      visualizeCleanTempGraph();
+    }
     if (!generate_odom_map_transform_) {return;}
     // Create a timer to publish the transform at a fixed rate
     tf_publish_timer_ = this->create_timer(
