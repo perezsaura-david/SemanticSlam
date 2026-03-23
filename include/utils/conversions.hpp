@@ -93,6 +93,7 @@ Eigen::Isometry3d convertToIsometry3d(
   const Eigen::Vector3d & _position,
   const Eigen::Quaterniond & _orientation);
 Eigen::Isometry3d convertToIsometry3d(const geometry_msgs::msg::Pose & _pose);
+Eigen::Isometry3d convertToIsometry3d(geometry_msgs::msg::Transform & _transform);
 
 geometry_msgs::msg::Pose convertToGeometryMsgPose(const Eigen::Isometry3d & _isometry);
 geometry_msgs::msg::Pose convertToGeometryMsgPose(const Eigen::Vector3d & _vector3d);

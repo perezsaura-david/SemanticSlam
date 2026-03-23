@@ -16,8 +16,20 @@
     main_graph_odometry_orientation_threshold: 1.0
     temp_graph_odometry_distance_threshold: 0.2
     temp_graph_odometry_orientation_threshold: 1.0
-    odometry_is_relative: False
-    generate_odom_map_transform: True
+    main_graph_odometry_distance_threshold_if_detections: 0.5
+    visualize_graphs: false
+    odometry_is_relative: false
+    generate_odom_map_transform: false
+    map_odom_security_threshold: 999.9
+    calculate_odom_covariance: false
+    detection_covariance_by_distance: false
+    detection_covariance_by_distance2: false
+    detection_covariance_factor: 0.01
+    detection_orientation_covariance_factor: 1.0
+    generate_orientation_cov_by_distance: false
+    distance_for_orientation_covariance_increment: 10.0
+    detection_orientation_covariance_large_factor: 100.0
+    map_odom_transform_alpha: 1.0
     earth_to_map:
       x: 0.0 # Set manually x offset of the map frame from the earth frame
       y: 0.0 # Set manually y offset of the map frame from the earth frame

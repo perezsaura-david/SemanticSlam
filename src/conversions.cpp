@@ -98,6 +98,24 @@ geometry_msgs::msg::Pose convertToGeometryMsgPose(const Eigen::Isometry3d & _iso
   return geometry_msg_pose;
 }
 
+Eigen::Isometry3d convertToIsometry3d(geometry_msgs::msg::Transform & _transform) {
+  Eigen::Isometry3d isometry = Eigen::Isometry3d::Identity();
+  isometry.translation() = Eigen::Vector3d(
+       _transform.translation.x,
+       _transform.translation.y,
+       _transform.translation.z);
+
+  Eigen::Quaterniond quaternion(
+    _transform.rotation.w,
+    _transform.rotation.x,
+    _transform.rotation.y,
+    _transform.rotation.z);
+
+  isometry.rotate(quaternion);
+  return isometry;
+}
+
+
 geometry_msgs::msg::Pose convertToGeometryMsgPose(const Eigen::Vector3d & _vector3d)
 {
   geometry_msgs::msg::Pose geometry_msg_pose;

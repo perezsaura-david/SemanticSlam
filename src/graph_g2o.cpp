@@ -99,7 +99,12 @@ std::vector<GraphNode *> GraphG2O::getNodes() {return graph_nodes_;}
 std::vector<GraphEdge *> GraphG2O::getEdges() {return graph_edges_;}
 std::unordered_map<std::string, GraphNode *> GraphG2O::getObjectNodes() {return obj_id2node_;}
 OdomNode * GraphG2O::getLastOdomNode() {return last_odom_node_;}
+OdomNode * GraphG2O::getMapNode() {return map_node_;}
 
+void GraphG2O::setMapNode(OdomNode * _map_node)
+{
+  map_node_ = _map_node;
+}
 
 void GraphG2O::setFixedObjects(const std::vector<FixedObject> & _fixed_objects)
 {
@@ -135,8 +140,17 @@ void GraphG2O::initGraph(const Eigen::Isometry3d & _initial_pose)
   last_odom_node_ = fixed_node;
 }
 
-void GraphG2O::optimizeGraph()
+bool GraphG2O::optimizeGraph()
 {
+  if (graph_->vertices().size() == 0) {
+    ERROR_GRAPH("No vertices in the optimizer! Skipping optimization.");
+    return false;
+  }
+  if (graph_->edges().size() == 0) {
+    ERROR_GRAPH("No edges in the optimizer! Skipping optimization.");
+    return false;
+  }
+
   DEBUG_START_TIMER
   const int num_iterations = 100;
   // INFO_GRAPH("--- optimizing graph ---");
@@ -148,7 +162,8 @@ void GraphG2O::optimizeGraph()
 
   double chi2 = graph_->chi2();
   if (std::isnan(chi2)) {
-    ERROR_GRAPH("GRAPH RETURNED A NAN WAITING AFTER OPTIMIZATION");
+    ERROR_GRAPH("GRAPH RETURNED A NAN BEFORE OPTIMIZATION");
+    // return false;
   }
   // std::cout << "Start optimization" << std::endl;
   graph_->optimize(num_iterations);
@@ -157,15 +172,23 @@ void GraphG2O::optimizeGraph()
   // std::cout << "iterations: " << iterations << " / " << num_iterations << std::endl;
   // std::cout << "chi2: (before)" << chi2 << " -> (after)" << graph->chi2() << std::endl;
   if (std::isnan(graph_->chi2())) {
-    throw std::invalid_argument("GRAPH RETURNED A NAN...STOPPING THE EXPERIMENT");
+    // FIXME(dps): If temp graph, reset
+    // throw std::invalid_argument("GRAPH RETURNED A NAN...STOPPING THE EXPERIMENT");
+    ERROR_GRAPH("GRAPH RETURNED A NAN AFTER OPTIMIZATION");
+    return false;
   }
   DEBUG_LOG_DURATION_GRAPH
+  return true;
 }
 
 void GraphG2O::addNode(GraphNode & _node)
 {
   int id = n_vertices_++;
   _node.getVertex()->setId(id);
+  if (!graph_){
+    WARN_GRAPH("Graph is null");
+    return;
+  }
   if (!graph_->addVertex(_node.getVertex())) {
     WARN_GRAPH("Vertex not added");
     return;
@@ -176,6 +199,14 @@ void GraphG2O::addNode(GraphNode & _node)
 void GraphG2O::addEdge(GraphEdge & _edge)
 {
   int id = n_edges_++;
+  if (!graph_){
+    WARN_GRAPH("Graph is null");
+    return;
+  }
+  if (_edge.getEdge() == nullptr) {
+    ERROR_GRAPH("Edge is null");
+    return;
+  }
   _edge.getEdge()->setId(id);
   if (!graph_->addEdge(_edge.getEdge())) {
     WARN_GRAPH("Edge not added");
@@ -196,6 +227,10 @@ void GraphG2O::addNewKeyframe(
   OdomEdge * odom_edge(new OdomEdge(
       last_odom_node_, odom_node, _relative_pose,
       information_matrix));
+  if (odom_edge == nullptr) {
+    ERROR_GRAPH("Odom edge is null");
+    return;
+  }
   addEdge(*odom_edge);
   last_odom_node_ = odom_node;
 }
@@ -203,6 +238,9 @@ void GraphG2O::addNewKeyframe(
 void GraphG2O::addNewObjectDetection(
   ObjectDetection * _object_detection)
 {
+  if (_object_detection == nullptr) {
+    return;
+  }
   GraphNode * object_node;
   // Get object node from list
   object_node = obj_id2node_[_object_detection->getId()];
@@ -211,19 +249,33 @@ void GraphG2O::addNewObjectDetection(
     addNode(*object_node);
 
     obj_id2node_[_object_detection->getId()] = object_node;
-    // FLAG_GRAPH("Added new object ID: " << _object_detection->getId());
+    FLAG_GRAPH("Added new object ID: " << _object_detection->getId());
   } else {
     // INFO_GRAPH("Already detected object ID: " << _object_detection->getId());
   }
+  if (_object_detection == nullptr) {
+    return;
+  }
 
   GraphEdge * object_edge = _object_detection->createEdge(last_odom_node_, object_node);
+  if (object_edge == nullptr) {
+    ERROR_GRAPH("Object edge is null");
+    return;
+  }
   addEdge(*object_edge);
 }
 
 Eigen::MatrixXd GraphG2O::computeNodeCovariance(GraphNode * _node)
 {
+  // ERROR_GRAPH("Compute node covariance");
+  // if (!_node->getVertex()) {
+  //   ERROR_GRAPH("Node has no vertex");
+  //   return Eigen::MatrixXd();
+  // }
+  // ERROR_GRAPH("Node has vertex");
   int node_id = _node->getVertex()->id();   // Get the g2o vertex ID
   g2o::SparseBlockMatrix<Eigen::MatrixXd> spinv;
+  // ERROR_GRAPH("Node has id");
 
   auto node_se3 = dynamic_cast<g2o::VertexSE3 *>(_node->getVertex());
   if (node_se3) {
@@ -235,18 +287,54 @@ Eigen::MatrixXd GraphG2O::computeNodeCovariance(GraphNode * _node)
   }
   // WARN_GRAPH("COVARIANCE\n" << spinv);
 
+  // ERROR_GRAPH("Computer Marginals");
   if (spinv.nonZeroBlocks() < 1) {
     // std::cout << spinv.nonZeros() << std::endl;
     // WARN_GRAPH("No covariance block found for node ID " << node_id);
     return Eigen::MatrixXd();     // Return an empty matrix
   }
 
+  // ERROR_GRAPH("Covariance block found");
+  // for (size_t c = 0; c < spinv.blockCols().size(); ++c) {
+  //   for (auto it = spinv.blockCols()[c].begin(); it != spinv.blockCols()[c].end(); ++it) {
+  //     int row = it->first;
+  //     // ERROR_GRAPH("Covariance block available at (" << row << ", " << c << ")");
+  //   }
+  // }
+
+  // ERROR_GRAPH(PRINT_VAR(node_id));
+
   Eigen::MatrixXd covariance;
   auto block_cols = spinv.blockCols();
+  // ERROR_GRAPH("Covariance block cols size: " << block_cols.size());
+  if (node_id - 1 >= block_cols.size()) {
+    ERROR_GRAPH("Node ID " << node_id << " is out of bounds for block_cols");
+    return Eigen::MatrixXd();     // Return an empty matrix
+  }
   auto it = block_cols[node_id - 1].find(node_id - 1);
-  if (it != block_cols[node_id].end()) {
+  // ERROR_GRAPH("Covariance block found for node ID " << node_id);
+  // std::cout << "CHECK IT" << (block_cols[node_id - 1].end() == block_cols[node_id-1].end()) << std::endl;
+  if (it != block_cols[node_id-1].end()) {
     covariance = *it->second;
   }
+  // if (it != block_cols[node_id].end()) {
+  //   covariance = *it->second;
+  // }
+  // auto* block = spinv.block(node_id, node_id);
+  // if (block) {
+  //   covariance = *block;
+  //   // ERROR_GRAPH("Covariance block successfully retrieved");
+  // } else {
+  //   ERROR_GRAPH("Covariance block not found for node ID " << node_id);
+  //   return Eigen::MatrixXd();     // Return an empty matrix
+  // }
+  // if (spinv.block(node_id, node_id, false)) {
+  //   covariance = *spinv.block(node_id, node_id, false);
+  //   // ERROR_GRAPH("Covariance block successfully retrieved for node ID " << node_id);
+  // } else {
+  //   ERROR_GRAPH("Covariance block NOT found for node ID " << node_id);
+  //   return Eigen::MatrixXd();     // Return an empty matrix
+  // }
 
   return covariance;
 }

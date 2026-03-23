@@ -82,6 +82,8 @@ private:
     const rcl_interfaces::msg::ListParametersResult & _result,
     std::map<std::string, std::pair<std::string, std::vector<double>>> & fixed_objects,
     OptimizerG2OParameters & optimizer_params);
+  OptimizerG2OParameters getOptimizerParameters();
+  Eigen::Isometry3d getOdometryFromOpenVins(const nav_msgs::msg::Odometry & _msg); 
 
   void visualizeCleanTempGraph();
   void visualizeMainGraph();
@@ -91,6 +93,8 @@ private:
   visualization_msgs::msg::MarkerArray generateVizEdgesMsg(std::shared_ptr<GraphG2O> & _graph);
   visualization_msgs::msg::MarkerArray generateCleanMarkersMsg();
   void updateMapOdomTransform(const std_msgs::msg::Header & _header);
+  void updateEarthMapTransform(const std_msgs::msg::Header & _header);
+  // Eigen::Isometry3d filterTransform(Eigen::Isometry3d _last_transform, Eigen::Isometry3d _new_transform);
 
   void processOdometryReceived(
     const Eigen::Isometry3d _odom_pose,
@@ -128,14 +132,45 @@ private:
 
   OdometryWithCovariance last_odometry_received_;
   geometry_msgs::msg::TransformStamped map_odom_transform_msg_;
+  geometry_msgs::msg::TransformStamped earth_map_transform_msg_;
   Eigen::Isometry3d earth_to_map_transform_;
+  Eigen::Isometry3d last_published_map_odom_transform_;
 
   // PARAMETERS
+  std::string earth_frame_ = "earth";
+  std::string estimated_map_frame_;
   std::string map_frame_;
   std::string odom_frame_;
   std::string robot_frame_;
-  bool odometry_is_relative_ = false;
   std::string force_object_type_;
+  double detection_covariance_factor_ = 0.01;
+  double detection_orientation_covariance_factor_ = 10;
+  double distance_for_orientation_covariance_increment_ = 10;
+  double detection_orientation_covariance_large_factor_ = 100;
+  // double map_odom_transform_alpha_ = 1.0;
+  bool detection_covariance_by_distance_ = false;
+  bool detection_covariance_by_distance2_ = false;
+  bool odometry_is_relative_ = false;
+  bool generate_odom_map_transform_ = false;
+  bool visualize_graphs_ = false;
+  bool generate_orientation_cov_by_distance_ = false;
+
+
+  // TF publishers
+  rclcpp::CallbackGroup::SharedPtr tf_callback_group_;
+  rclcpp::CallbackGroup::SharedPtr detections_callback_group_;
+  rclcpp::TimerBase::SharedPtr tf_publish_timer_;
+
+public:
+  rclcpp::CallbackGroup::SharedPtr get_tf_callback_group()
+  {
+    return tf_callback_group_;
+  }
+
+  rclcpp::CallbackGroup::SharedPtr get_detections_callback_group()
+  {
+    return detections_callback_group_;
+  }
 
   // std::filesystem::path plugin_name_;
   // std::shared_ptr<pluginlib::ClassLoader<as2_state_estimator_plugin_base::StateEstimatorBase>>
